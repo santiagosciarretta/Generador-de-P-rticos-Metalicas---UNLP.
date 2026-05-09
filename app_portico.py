@@ -17,20 +17,22 @@ st.title("🏗️ Generador Automático de Pórticos - UNLP")
 # ============================================================================
 @st.cache_data
 def cargar_base_perfiles():
-    """Lee el Excel, usa la fila 2 como nombres y elimina el sistema imperial"""
-    
-    # 1. Usamos read_excel en lugar de read_csv
-    # 2. Ponemos el nombre exacto de tu archivo local
+    """Lee el Excel, renombra la columna clave y elimina el sistema imperial"""
     df = pd.read_excel("Perfiles AISC.xlsx", header=1)
+    
+    # [CORRECCIÓN]: Renombramos la columna C (índice 2) forzadamente a nuestro nombre estándar
+    # Así evitamos el error de los saltos de línea o espacios de la tabla original
+    df.rename(columns={df.columns[2]: 'AISC_Manual_Label'}, inplace=True)
     
     # Eliminar columnas imperiales: de la E (índice 4) a la BC (índice 54)
     cols_to_drop = df.columns[4:55]
     df_metrico = df.drop(columns=cols_to_drop)
     
-    # Limpiamos filas que no tengan nombre de perfil
+    # Limpiamos filas que no tengan nombre de perfil (ahora sí la va a encontrar)
     df_metrico = df_metrico.dropna(subset=['AISC_Manual_Label'])
     
     return df_metrico
+
 # Cargamos la base a la memoria (se hace una sola vez de forma súper rápida)
 df_perfiles = cargar_base_perfiles()
 lista_perfiles_totales = df_perfiles['AISC_Manual_Label'].tolist()
