@@ -298,23 +298,23 @@ def generar_grafico():
         dibujar_arriostramiento_y(ax, L, yp)
 
     y_p = 0
-    xc = D_C/2 + 1.0 # Posición horizontal de la línea de cota
+    xc = D_C/2 + 1.0
     for yp in pos:
         dist = yp - y_p
         if dist > 0.1:
             y_mid = (y_p + yp) / 2
-            # Dibujamos la línea de cota con flechas
             ax.annotate('', xy=(xc, yp), xytext=(xc, y_p), arrowprops=dict(arrowstyle='<->', lw=0.8))
             
-            # DESDOBLAMIENTO LATERAL: 
-            f = Fraction(FRAC).limit_denominator(6)
-            if abs(dist-dz) < 0.05:
-                # 1. La Fracción H/x a la IZQUIERDA de la línea (ha='right')
-                ax.text(xc - 0.1, y_mid, f"H/{f.denominator}", rotation=90, va='center', ha='right', fontsize=8, color='#0066CC', fontweight='bold')
-                # 2. El valor en METROS a la DERECHA de la línea (ha='left')
+            if abs(dist - dz) < 0.05:
+                # Convertimos el decimal del slider a fracción exacta
+                frac_exacta = Fraction(str(FRAC)).limit_denominator(100) 
+                texto_h = f"H * {frac_exacta.numerator}/{frac_exacta.denominator}" if frac_exacta.numerator != 1 else f"H/{frac_exacta.denominator}"
+                
+                # Fracción a la izquierda
+                ax.text(xc - 0.1, y_mid, texto_h, rotation=90, va='center', ha='right', fontsize=8, color='#0066CC', fontweight='bold')
+                # Metros a la derecha
                 ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=8)
             else:
-                # Si es un tramo residual que no coincide con la fracción, solo ponemos metros
                 ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=8)
         y_p = yp
 
@@ -333,6 +333,12 @@ def generar_grafico():
         f"Arriostramientos nudos sup.: {texto_nudos}\n"
         f"Arriostramientos intermedios: {CANT}"
     )
+
+# Cuadro de información principal
+    ax.text(L+1.5, -3.5, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
+
+    # FIRMA DEL AUTOR (Texto pequeño en cursiva)
+    ax.text(L+4.5, -3.8, "Ing. Santiago Sciarretta", fontsize=8, style='italic', family='serif', ha='right', color='#555555')
     
     # Esta línea la dejás como la tenías, asegurándote que imprima la variable 'info'
     ax.text(L+1.5, 0, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
