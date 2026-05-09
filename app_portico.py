@@ -278,10 +278,10 @@ def generar_grafico():
     dibujar_cotas(ax, 0, 0, 0, H, f'H={H:.2f}m', 1.2, 'vertical')
     dibujar_cotas(ax, 0, H, L, H, f'L={L:.2f}m', 1.0, 'horizontal')
 
-    # INFO (Desplazado hacia la derecha para dar lugar a la viga)
+    # INFO
     res = f"Riostras: {len(pos)} (a {FRAC}H)"
     info = f"TP Nº1 - ESTRUCTURAS METÁLICAS\nCol: {t_col} {m_col} ({o_col})\nViga: {t_viga} {m_viga} ({o_viga})\n{res}"
-    ax.text(L+3.5, H, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=9, va='top')
+    ax.text(L+1.5, H, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=9, va='top')
 
     st.pyplot(fig)
 
