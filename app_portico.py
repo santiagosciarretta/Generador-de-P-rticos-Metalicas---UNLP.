@@ -15,50 +15,65 @@ st.title("🏗️ Generador Automático de Pórticos - UNLP")
 # ============================================================================
 # MOTOR DE DATOS: BASE DE PERFILES AISC
 # ============================================================================
-
 @st.cache_data
 def cargar_base_perfiles():
-    """Lee el Excel, limpia la basura de los títulos y elimina el sistema imperial"""
+    """Lee el Excel y limpia los nombres sin borrar ninguna columna para evitar desfasajes"""
     df = pd.read_excel("Perfiles AISC.xlsx", header=1)
     
-    # Renombramos la columna 3 forzadamente
+    # Renombramos la columna 3 (índice 2) forzadamente para asegurar el Label
     df.rename(columns={df.columns[2]: 'AISC_Manual_Label'}, inplace=True)
     
-    # Eliminamos las columnas imperiales (de la E a la BC)
-    cols_to_drop = df.columns[4:55]
-    df_metrico = df.drop(columns=cols_to_drop)
+    # Limpiamos todos los encabezados (quitamos espacios y saltos de línea molestos)
+    df.columns = [str(col).replace('\n', '').replace(' ', '') for col in df.columns]
     
-    # LA MAGIA: Le pasamos una "aplanadora" a los nombres de las columnas.
-    # Quitamos todos los espacios y saltos de línea molestos de la tabla original AISC
-    df_metrico.columns = [str(col).replace('\n', '').replace(' ', '') for col in df_metrico.columns]
-    
-    # Limpiamos las filas vacías
-    df_metrico = df_metrico.dropna(subset=['AISC_Manual_Label'])
+    # Nos quedamos solo con las filas que son perfiles reales
+    df_metrico = df.dropna(subset=['AISC_Manual_Label'])
     
     return df_metrico
 
-# Cargamos la base a la memoria
 df_perfiles = cargar_base_perfiles()
 lista_perfiles_totales = df_perfiles['AISC_Manual_Label'].tolist()
 
 def obtener_propiedades_perfil(nombre_perfil):
-    """Busca un perfil en la tabla y devuelve sus dimensiones en metros"""
+    """Busca las propiedades leyendo la tabla de derecha a izquierda (para agarrar el sistema métrico)"""
     try:
-        # Filtramos la tabla
         datos = df_perfiles[df_perfiles['AISC_Manual_Label'] == nombre_perfil].iloc[0]
         
-        # Ahora usamos los nombres "limpios" (minúsculas y mayúsculas exactas como quedaron)
+        def buscar_metrica(nombre_columna):
+            # Recorremos las columnas al revés (desde la derecha del Excel hacia la izquierda)
+            for key in reversed(list(datos.keys())):
+                # Le quitamos el ".1" o ".2" que agrega Pandas a las columnas repetidas
+                base_key = str(key).split('.')[0].lower()
+                
+                if base_key == nombre_columna.lower():
+                    val = datos[key]
+                    if pd.notna(val):
+                        try:
+                            # Intentamos convertirlo a número. Si es válido y > 0, lo devolvemos.
+                            numero = float(val)
+                            if numero > 0:
+                                return numero
+                        except:
+                            pass
+            return 0.0
+
+        # Ahora sí, extrae las medidas milimétricas reales
         props = {
-            'd': float(datos['d']) / 1000.0,       # Peralte total
-            'bf': float(datos['bF']) / 1000.0,     # Ancho del ala
-            'tw': float(datos['tW']) / 1000.0,     # Espesor del alma
-            'tf': float(datos['tF']) / 1000.0,     # Espesor del ala
-            'Ix': float(datos.get('IX', 0)),       # Inercia X
-            'Iy': float(datos.get('IY', 0))        # Inercia Y
+            'd': buscar_metrica('d') / 1000.0,       # Peralte
+            'bf': buscar_metrica('bf') / 1000.0,     # Ancho ala
+            'tw': buscar_metrica('tw') / 1000.0,     # Espesor alma
+            'tf': buscar_metrica('tf') / 1000.0,     # Espesor ala
+            'Ix': buscar_metrica('ix'),              # Inercia X
+            'Iy': buscar_metrica('iy')               # Inercia Y
         }
+        
+        # Rescate por si el perfil no tiene datos cargados
+        if props['d'] == 0:
+            return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0}
+            
         return props
     except Exception as e:
-        st.error(f"Error interno leyendo catálogo para {nombre_perfil}: Falta la columna '{e}'")
+        st.error(f"Error procesando {nombre_perfil}: {e}")
         return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0}
 
 # ============================================================================
