@@ -170,16 +170,28 @@ st.sidebar.header("⚙️ Parámetros")
 H = st.sidebar.number_input("Altura (H) [m]", value=5.5)
 L = st.sidebar.number_input("Longitud (L) [m]", value=7.0)
 
-series = ["IPE", "IPN", "HEB", "UPN", "W"]
+# Obtenemos todas las familias de perfiles (W, IPE, UPN, etc.) leyendo la primera columna de la base
+series_disponibles = df_perfiles.iloc[:, 0].dropna().unique().tolist()
 
 st.sidebar.markdown("**Columna**")
-# Menú desplegable con todos los perfiles de la AISC
-perfil_col = st.sidebar.selectbox("Perfil Columna", lista_perfiles_totales, index=lista_perfiles_totales.index("W12X50") if "W12X50" in lista_perfiles_totales else 0, key="sc")
-o_col = st.sidebar.radio("Eje en plano (Col)", ["FUERTE", "DEBIL"], key="oc")
+# 1. Selector de Familia (Serie) para Columna
+serie_col = st.sidebar.selectbox("Tipo de Perfil", series_disponibles, index=series_disponibles.index("W") if "W" in series_disponibles else 0, key="tipo_c")
+# 2. Filtramos y mostramos solo los tamaños de esa familia
+lista_col_filtrada = df_perfiles[df_perfiles.iloc[:, 0] == serie_col]['AISC_Manual_Label'].tolist()
+perfil_col = st.sidebar.selectbox("Tamaño", lista_col_filtrada, key="sc")
+o_col = st.sidebar.radio("Orientación (Col)", ["FUERTE", "DEBIL"], key="oc", horizontal=True)
+
+st.sidebar.markdown("---")
 
 st.sidebar.markdown("**Viga**")
-perfil_viga = st.sidebar.selectbox("Perfil Viga", lista_perfiles_totales, index=lista_perfiles_totales.index("W16X26") if "W16X26" in lista_perfiles_totales else 0, key="sv")
-o_viga = st.sidebar.radio("Eje en plano (Viga)", ["FUERTE", "DEBIL"], key="ov")
+# 1. Selector de Familia (Serie) para Viga
+serie_viga = st.sidebar.selectbox("Tipo de Perfil", series_disponibles, index=series_disponibles.index("W") if "W" in series_disponibles else 0, key="tipo_v")
+# 2. Filtramos y mostramos solo los tamaños de esa familia
+lista_viga_filtrada = df_perfiles[df_perfiles.iloc[:, 0] == serie_viga]['AISC_Manual_Label'].tolist()
+perfil_viga = st.sidebar.selectbox("Tamaño", lista_viga_filtrada, key="sv")
+o_viga = st.sidebar.radio("Orientación (Viga)", ["FUERTE", "DEBIL"], key="ov", horizontal=True)
+
+st.sidebar.markdown("---")
 
 with st.sidebar.expander("Riostras"):
     NUDOS = st.sidebar.checkbox("Nudos", value=True)
