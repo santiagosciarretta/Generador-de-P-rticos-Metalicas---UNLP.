@@ -15,50 +15,50 @@ st.title("🏗️ Generador Automático de Pórticos - UNLP")
 # ============================================================================
 # MOTOR DE DATOS: BASE DE PERFILES AISC
 # ============================================================================
+
 @st.cache_data
 def cargar_base_perfiles():
-    """Lee el Excel, renombra la columna clave y elimina el sistema imperial"""
+    """Lee el Excel, limpia la basura de los títulos y elimina el sistema imperial"""
     df = pd.read_excel("Perfiles AISC.xlsx", header=1)
     
-    # [CORRECCIÓN]: Renombramos la columna C (índice 2) forzadamente a nuestro nombre estándar
-    # Así evitamos el error de los saltos de línea o espacios de la tabla original
+    # Renombramos la columna 3 forzadamente
     df.rename(columns={df.columns[2]: 'AISC_Manual_Label'}, inplace=True)
     
-    # Eliminar columnas imperiales: de la E (índice 4) a la BC (índice 54)
+    # Eliminamos las columnas imperiales (de la E a la BC)
     cols_to_drop = df.columns[4:55]
     df_metrico = df.drop(columns=cols_to_drop)
     
-    # Limpiamos filas que no tengan nombre de perfil (ahora sí la va a encontrar)
+    # LA MAGIA: Le pasamos una "aplanadora" a los nombres de las columnas.
+    # Quitamos todos los espacios y saltos de línea molestos de la tabla original AISC
+    df_metrico.columns = [str(col).replace('\n', '').replace(' ', '') for col in df_metrico.columns]
+    
+    # Limpiamos las filas vacías
     df_metrico = df_metrico.dropna(subset=['AISC_Manual_Label'])
     
     return df_metrico
 
-# Cargamos la base a la memoria (se hace una sola vez de forma súper rápida)
+# Cargamos la base a la memoria
 df_perfiles = cargar_base_perfiles()
 lista_perfiles_totales = df_perfiles['AISC_Manual_Label'].tolist()
 
 def obtener_propiedades_perfil(nombre_perfil):
     """Busca un perfil en la tabla y devuelve sus dimensiones en metros"""
     try:
-        # Filtramos la tabla para encontrar la fila del perfil elegido
+        # Filtramos la tabla
         datos = df_perfiles[df_perfiles['AISC_Manual_Label'] == nombre_perfil].iloc[0]
         
-        # 1. Usamos MAYÚSCULAS exactas según tu archivo original.
-        # 2. Agregamos ".1" porque Pandas renombra así a las columnas métricas duplicadas.
+        # Ahora usamos los nombres "limpios" (minúsculas y mayúsculas exactas como quedaron)
         props = {
-            'd': float(datos['D.1']) / 1000.0,       # Peralte total
-            'bf': float(datos['BF.1']) / 1000.0,     # Ancho del ala
-            'tw': float(datos['TW.1']) / 1000.0,     # Espesor del alma
-            'tf': float(datos['TF.1']) / 1000.0,     # Espesor del ala
-            
-            # Usamos 'get' por precaución, por si las inercias están vacías en algún perfil raro
-            'Ix': float(datos.get('IX.1', 0)),       # Inercia X
-            'Iy': float(datos.get('IY.1', 0))        # Inercia Y
+            'd': float(datos['d']) / 1000.0,       # Peralte total
+            'bf': float(datos['bF']) / 1000.0,     # Ancho del ala
+            'tw': float(datos['tW']) / 1000.0,     # Espesor del alma
+            'tf': float(datos['tF']) / 1000.0,     # Espesor del ala
+            'Ix': float(datos.get('IX', 0)),       # Inercia X
+            'Iy': float(datos.get('IY', 0))        # Inercia Y
         }
         return props
     except Exception as e:
-        # Si algo falla, ahora te lo avisa en pantalla con un cartel rojo
-        st.error(f"Error interno leyendo catálogo para {nombre_perfil}: {e}")
+        st.error(f"Error interno leyendo catálogo para {nombre_perfil}: Falta la columna '{e}'")
         return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0}
 
 # ============================================================================
