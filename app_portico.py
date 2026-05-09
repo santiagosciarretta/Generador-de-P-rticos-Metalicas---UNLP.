@@ -114,11 +114,11 @@ def dibujar_seccion_ipe(ax, x, y, orientacion='FUERTE', escala=0.45):
     ta, tm = 0.16 * escala * 1.5, 0.08 * escala * 1.5
     
     if orientacion == 'FUERTE':
-        ax.add_patch(patches.Rectangle((x - w/2, y - tm/2), w, tm, facecolor='lightgray', edgecolor='black', alpha=0.4))
+        ax.add_patch(patches.Rectangle((x - w/2, y - tm/2), w, tm, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - w/2, y - h/2), ta, h, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x + w/2 - ta, y - h/2), ta, h, facecolor='gray', edgecolor='black', alpha=0.7))
     else:
-        ax.add_patch(patches.Rectangle((x - tm/2, y - h/2), tm, h, facecolor='lightgray', edgecolor='black', alpha=0.4))
+        ax.add_patch(patches.Rectangle((x - tm/2, y - h/2), tm, h, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - w/2, y + h/2 - ta), w, ta, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - w/2, y - h/2), w, ta, facecolor='gray', edgecolor='black', alpha=0.7))
     
@@ -136,12 +136,12 @@ def dibujar_seccion_viga(ax, x, y, orientacion='FUERTE', escala=0.45):
     
     if orientacion == 'FUERTE':
         # Alma vertical, alas horizontales
-        ax.add_patch(patches.Rectangle((x - tm/2, y - h/2), tm, h, facecolor='lightgray', edgecolor='black', alpha=0.4))
+        ax.add_patch(patches.Rectangle((x - tm/2, y - h/2), tm, h, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - w/2, y + h/2 - ta), w, ta, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - w/2, y - h/2), w, ta, facecolor='gray', edgecolor='black', alpha=0.7))
     else:
         # Alma horizontal, alas verticales
-        ax.add_patch(patches.Rectangle((x - h/2, y - tm/2), h, tm, facecolor='lightgray', edgecolor='black', alpha=0.4))
+        ax.add_patch(patches.Rectangle((x - h/2, y - tm/2), h, tm, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - h/2, y - w/2), ta, w, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x + h/2 - ta, y - w/2), ta, w, facecolor='gray', edgecolor='black', alpha=0.7))
         
@@ -312,10 +312,21 @@ def generar_grafico():
     dibujar_cotas(ax, 0, H, L, H, f'L={L:.2f}m', 1.0, 'horizontal')
 
     # INFO
-    res = f"Riostras: {len(pos)} (a {FRAC}H)"
-    info = f"TP Nº1 - ESTRUCTURAS METÁLICAS\nCol: {perfil_col} ({o_col})\nViga: {perfil_viga} ({o_viga})\n{res}"
-    ax.text(L+1.5, 0, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
-
+    # a) Convertimos el True/False del checkbox a "Sí" o "No"
+    texto_nudos = "Sí" if NUDOS else "No"
+    
+    # b) Armamos el nuevo bloque de texto usando la variable CANT del panel lateral
+    info = (
+        f"TP Nº1 - ESTRUCTURAS METÁLICAS\n"
+        f"Col: {perfil_col} ({o_col})\n"
+        f"Viga: {perfil_viga} ({o_viga})\n"
+        f"Arriostramientos nudos sup.: {texto_nudos}\n"
+        f"Arriostramientos intermedios: {CANT}"
+    )
+    
+    # Esta línea la dejás como la tenías, asegurándote que imprima la variable 'info'
+    ax.text(L+1.5, -3, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
+   
     st.pyplot(fig, use_container_width=True)
 
 generar_grafico()
