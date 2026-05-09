@@ -43,20 +43,22 @@ def obtener_propiedades_perfil(nombre_perfil):
         # Filtramos la tabla para encontrar la fila del perfil elegido
         datos = df_perfiles[df_perfiles['AISC_Manual_Label'] == nombre_perfil].iloc[0]
         
-        # Extraemos las medidas llamando EXACTAMENTE al encabezado de la AISC
+        # 1. Usamos MAYÚSCULAS exactas según tu archivo original.
+        # 2. Agregamos ".1" porque Pandas renombra así a las columnas métricas duplicadas.
         props = {
-            'd': float(datos['d']) / 1000.0,       # Peralte total
-            'bf': float(datos['b F']) / 1000.0,    # Ancho del ala (nota el espacio)
-            'tw': float(datos['t W']) / 1000.0,    # Espesor del alma (nota el espacio)
-            'tf': float(datos['t F']) / 1000.0,    # Espesor del ala (nota el espacio)
-            'Ix': float(datos['I X']),             # Inercia X (nota el espacio)
-            'Iy': float(datos['I Y'])              # Inercia Y (nota el espacio)
+            'd': float(datos['D.1']) / 1000.0,       # Peralte total
+            'bf': float(datos['BF.1']) / 1000.0,     # Ancho del ala
+            'tw': float(datos['TW.1']) / 1000.0,     # Espesor del alma
+            'tf': float(datos['TF.1']) / 1000.0,     # Espesor del ala
+            
+            # Usamos 'get' por precaución, por si las inercias están vacías en algún perfil raro
+            'Ix': float(datos.get('IX.1', 0)),       # Inercia X
+            'Iy': float(datos.get('IY.1', 0))        # Inercia Y
         }
         return props
     except Exception as e:
-        # Si algo falla, Streamlit ahora te va a mostrar una alerta roja con el error
-        # en lugar de ocultarlo, para que sepamos exactamente qué columna falta.
-        st.error(f"Error leyendo el catálogo para {nombre_perfil}: Falta la columna {e}")
+        # Si algo falla, ahora te lo avisa en pantalla con un cartel rojo
+        st.error(f"Error interno leyendo catálogo para {nombre_perfil}: {e}")
         return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0}
 
 # ============================================================================
