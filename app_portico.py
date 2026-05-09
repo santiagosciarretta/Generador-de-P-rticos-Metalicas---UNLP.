@@ -231,7 +231,7 @@ def generar_grafico():
     lw_ext = 1.5
     lw_int = 1.0
 
-    fig, ax = plt.subplots(figsize=(13, 8))
+    fig, ax = plt.subplots(figsize=(12, 9))
     ax.set_aspect('equal')
     ax.axis('off')
     # Aumentamos el límite X para que entre el cuadro de información desplazado
@@ -316,6 +316,6 @@ def generar_grafico():
     info = f"TP Nº1 - ESTRUCTURAS METÁLICAS\nCol: {perfil_col} ({o_col})\nViga: {perfil_viga} ({o_viga})\n{res}"
     ax.text(L+1.5, 0, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
 
-    st.pyplot(fig)
+    st.pyplot(fig, use_container_width=True)
 
 generar_grafico()
