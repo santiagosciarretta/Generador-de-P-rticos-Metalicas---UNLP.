@@ -302,10 +302,18 @@ def generar_grafico():
     for yp in pos:
         dist = yp - y_p
         if dist > 0.1:
-            f = Fraction(FRAC).limit_denominator(6)
-            t = f"H/{f.denominator}={dist:.2f}m" if abs(dist-dz)<0.05 else f"{dist:.2f}m"
+            y_mid = (y_p + yp) / 2
             ax.annotate('', xy=(xc, yp), xytext=(xc, y_p), arrowprops=dict(arrowstyle='<->', lw=0.8))
-            ax.text(xc+0.1, (y_p+yp)/2, t, rotation=90, va='center', fontsize=8)
+            
+            # DESDOBLAMIENTO DE TEXTO: Fracción arriba, Metros abajo
+            f = Fraction(FRAC).limit_denominator(6)
+            if abs(dist-dz) < 0.05:
+                # Fracción (Arriba del centro del tramo)
+                ax.text(xc + 0.15, y_mid + 0.1, f"H/{f.denominator}", rotation=90, va='bottom', ha='center', fontsize=8, color='#0066CC', fontweight='bold')
+                # Valor numérico (Abajo del centro del tramo)
+                ax.text(xc + 0.15, y_mid - 0.1, f"{dist:.2f}m", rotation=90, va='top', ha='center', fontsize=8)
+            else:
+                ax.text(xc + 0.15, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='center', fontsize=8)
         y_p = yp
 
     dibujar_cotas(ax, 0, 0, 0, H, f'H={H:.2f}m', 1.2, 'vertical')
