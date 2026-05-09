@@ -235,7 +235,7 @@ def generar_grafico():
     ax.set_aspect('equal')
     ax.axis('off')
     # Aumentamos el límite X para que entre el cuadro de información desplazado
-    ax.set_xlim(-5, L + 12); ax.set_ylim(-6, H + 3)
+    ax.set_xlim(-2, L + 5); ax.set_ylim(-1, H + 2)
 
     # 1. EJES GLOBALES
     color_x, color_y, color_z = '#CC0000', '#008000', '#0066CC'
