@@ -2,6 +2,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
+import pandas as pd
 from fractions import Fraction
 
 # ============================================================================
@@ -11,14 +12,49 @@ st.set_page_config(page_title="Generador de Pórticos - UNLP", layout="wide")
 
 st.title("🏗️ Generador Automático de Pórticos - UNLP")
 
-def obtener_peralte(serie, denominacion):
+# ============================================================================
+# MOTOR DE DATOS: BASE DE PERFILES AISC
+# ============================================================================
+@st.cache_data
+def cargar_base_perfiles():
+    """Lee el Excel, usa la fila 2 como nombres y elimina el sistema imperial"""
+    
+    # 1. Usamos read_excel en lugar de read_csv
+    # 2. Ponemos el nombre exacto de tu archivo local
+    df = pd.read_excel("Perfiles AISC.xlsx", header=1)
+    
+    # Eliminar columnas imperiales: de la E (índice 4) a la BC (índice 54)
+    cols_to_drop = df.columns[4:55]
+    df_metrico = df.drop(columns=cols_to_drop)
+    
+    # Limpiamos filas que no tengan nombre de perfil
+    df_metrico = df_metrico.dropna(subset=['AISC_Manual_Label'])
+    
+    return df_metrico
+# Cargamos la base a la memoria (se hace una sola vez de forma súper rápida)
+df_perfiles = cargar_base_perfiles()
+lista_perfiles_totales = df_perfiles['AISC_Manual_Label'].tolist()
+
+def obtener_propiedades_perfil(nombre_perfil):
+    """Busca un perfil en la tabla y devuelve sus dimensiones en metros"""
     try:
-        if serie == "W":
-            num_pulgadas = float(str(denominacion).upper().split('X')[0].strip())
-            return (num_pulgadas * 25.4) / 1000.0
-        return float(denominacion) / 1000.0
+        # Filtramos la tabla para encontrar la fila del perfil elegido
+        datos = df_perfiles[df_perfiles['AISC_Manual_Label'] == nombre_perfil].iloc[0]
+        
+        # Extraemos las medidas reales (están en mm, las pasamos a metros)
+        props = {
+            'd': float(datos['d']) / 1000.0,   # Peralte total
+            'bf': float(datos['bf']) / 1000.0, # Ancho del ala
+            'tw': float(datos['tw']) / 1000.0, # Espesor del alma
+            'tf': float(datos['tf']) / 1000.0, # Espesor del ala
+            'A': float(datos['A']) / 10000.0,  # Área en m2
+            'Ix': float(datos['Ix']),          # Inercia X
+            'Iy': float(datos['Iy'])           # Inercia Y
+        }
+        return props
     except:
-        return 0.40
+        # Medidas de salvavidas por si algo falla
+        return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015}
 
 # ============================================================================
 # FUNCIONES DE DIBUJO
@@ -120,15 +156,15 @@ H = st.sidebar.number_input("Altura (H) [m]", value=5.5)
 L = st.sidebar.number_input("Longitud (L) [m]", value=7.0)
 
 series = ["IPE", "IPN", "HEB", "UPN", "W"]
-st.sidebar.markdown("**Columnas**")
-t_col = st.sidebar.selectbox("Serie", series, index=0, key="sc")
-m_col = st.sidebar.text_input("Denominación", "400", key="dc")
-o_col = st.sidebar.radio("Eje en plano", ["FUERTE", "DEBIL"], key="oc")
+
+st.sidebar.markdown("**Columna**")
+# Menú desplegable con todos los perfiles de la AISC
+perfil_col = st.sidebar.selectbox("Perfil Columna", lista_perfiles_totales, index=lista_perfiles_totales.index("W12X50") if "W12X50" in lista_perfiles_totales else 0, key="sc")
+o_col = st.sidebar.radio("Eje en plano (Col)", ["FUERTE", "DEBIL"], key="oc")
 
 st.sidebar.markdown("**Viga**")
-t_viga = st.sidebar.selectbox("Serie", series, index=0, key="sv")
-m_viga = st.sidebar.text_input("Denominación", "600", key="dv")
-o_viga = st.sidebar.radio("Eje en plano", ["FUERTE", "DEBIL"], key="ov")
+perfil_viga = st.sidebar.selectbox("Perfil Viga", lista_perfiles_totales, index=lista_perfiles_totales.index("W16X26") if "W16X26" in lista_perfiles_totales else 0, key="sv")
+o_viga = st.sidebar.radio("Eje en plano (Viga)", ["FUERTE", "DEBIL"], key="ov")
 
 with st.sidebar.expander("Riostras"):
     NUDOS = st.sidebar.checkbox("Nudos", value=True)
@@ -142,15 +178,20 @@ T_APOYO = st.sidebar.selectbox("Apoyo", ["Empotrado", "Articulado"])
 # ============================================================================
 
 def generar_grafico():
-    D_COL_R = obtener_peralte(t_col, m_col)
-    D_VIGA_R = obtener_peralte(t_viga, m_viga)
+    # Extraemos todas las propiedades del catálogo
+    props_col = obtener_propiedades_perfil(perfil_col)
+    props_viga = obtener_propiedades_perfil(perfil_viga)
     
+    D_COL_R = props_col['d']
+    D_VIGA_R = props_viga['d']
+    
+    # Escala visual del pórtico
     esc = 0.8 / 0.40
     D_C, D_V = D_COL_R * esc, D_VIGA_R * esc
     
-    # [CORRECCIÓN]: Límite mínimo ('0.09') para evitar solapamiento en perfiles muy chicos
-    E_ALA_C = max(D_C * 0.15, 0.09)  
-    E_ALA_V = max(D_V * 0.15, 0.09)  
+    # Ahora usamos los espesores reales multiplicados por la escala visual para dibujar!
+    E_ALA_C = max(props_col['tf'] * esc, 0.06) 
+    E_ALA_V = max(props_viga['tf'] * esc, 0.06)
     
     lw_ext = 1.5
     lw_int = 1.0
