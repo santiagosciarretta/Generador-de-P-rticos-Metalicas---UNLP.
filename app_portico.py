@@ -334,11 +334,6 @@ def generar_grafico():
         f"Arriostramientos intermedios: {CANT}"
     )
 
-# Cuadro de información principal
-    ax.text(L+1.5, -3.5, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
-
-    # FIRMA DEL AUTOR (Texto pequeño en cursiva)
-    ax.text(L+4.5, -3.8, "Ing. Santiago Sciarretta", fontsize=8, style='italic', family='serif', ha='right', color='#555555')
     
     # Esta línea la dejás como la tenías, asegurándote que imprima la variable 'info'
     ax.text(L+1.5, 0, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
