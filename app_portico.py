@@ -170,8 +170,16 @@ st.sidebar.header("⚙️ Parámetros")
 H = st.sidebar.number_input("Altura (H) [m]", value=5.5)
 L = st.sidebar.number_input("Longitud (L) [m]", value=7.0)
 
-# Obtenemos todas las familias de perfiles (W, IPE, UPN, etc.) leyendo la primera columna de la base
-series_disponibles = df_perfiles.iloc[:, 0].dropna().unique().tolist()
+# Obtenemos todas las familias de la base de datos
+todas_las_series = df_perfiles.iloc[:, 0].dropna().unique().tolist()
+
+# -------------------------------------------------------------------------
+# FILTRO DE SERIES: Escribí acá adentro solo las familias que querés usar
+series_permitidas = ["W", "IPE", "IPN", "HEB", "HEA", "UPN"]
+# -------------------------------------------------------------------------
+
+# Filtramos la lista para que solo queden las permitidas (y en el orden que las pusiste arriba)
+series_disponibles = [s for s in series_permitidas if s in todas_las_series]
 
 st.sidebar.markdown("**Columna**")
 # 1. Selector de Familia (Serie) para Columna
