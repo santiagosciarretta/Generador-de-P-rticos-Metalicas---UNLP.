@@ -298,22 +298,24 @@ def generar_grafico():
         dibujar_arriostramiento_y(ax, L, yp)
 
     y_p = 0
-    xc = D_C/2 + 1.0
+    xc = D_C/2 + 1.0 # Posición horizontal de la línea de cota
     for yp in pos:
         dist = yp - y_p
         if dist > 0.1:
             y_mid = (y_p + yp) / 2
+            # Dibujamos la línea de cota con flechas
             ax.annotate('', xy=(xc, yp), xytext=(xc, y_p), arrowprops=dict(arrowstyle='<->', lw=0.8))
             
-            # DESDOBLAMIENTO DE TEXTO: Fracción arriba, Metros abajo
+            # DESDOBLAMIENTO LATERAL: 
             f = Fraction(FRAC).limit_denominator(6)
             if abs(dist-dz) < 0.05:
-                # Fracción (Arriba del centro del tramo)
-                ax.text(xc + 0.15, y_mid + 0.1, f"H/{f.denominator}", rotation=90, va='bottom', ha='center', fontsize=8, color='#0066CC', fontweight='bold')
-                # Valor numérico (Abajo del centro del tramo)
-                ax.text(xc + 0.15, y_mid - 0.1, f"{dist:.2f}m", rotation=90, va='top', ha='center', fontsize=8)
+                # 1. La Fracción H/x a la IZQUIERDA de la línea (ha='right')
+                ax.text(xc - 0.1, y_mid, f"H/{f.denominator}", rotation=90, va='center', ha='right', fontsize=8, color='#0066CC', fontweight='bold')
+                # 2. El valor en METROS a la DERECHA de la línea (ha='left')
+                ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=8)
             else:
-                ax.text(xc + 0.15, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='center', fontsize=8)
+                # Si es un tramo residual que no coincide con la fracción, solo ponemos metros
+                ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=8)
         y_p = yp
 
     dibujar_cotas(ax, 0, 0, 0, H, f'H={H:.2f}m', 1.2, 'vertical')
