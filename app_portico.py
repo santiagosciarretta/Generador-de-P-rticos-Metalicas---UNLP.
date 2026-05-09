@@ -11,6 +11,7 @@ from fractions import Fraction
 st.set_page_config(page_title="Generador de Pórticos - UNLP", layout="wide")
 
 st.title("🏗️ Generador Automático de Pórticos - UNLP")
+st.markdown("### Ing. Santiago Sciarretta")
 
 # ============================================================================
 # MOTOR DE DATOS: BASE DE PERFILES AISC
@@ -306,16 +307,24 @@ def generar_grafico():
             ax.annotate('', xy=(xc, yp), xytext=(xc, y_p), arrowprops=dict(arrowstyle='<->', lw=0.8))
             
             if abs(dist - dz) < 0.05:
-                # Convertimos el decimal del slider a fracción exacta
-                frac_exacta = Fraction(str(FRAC)).limit_denominator(100) 
-                texto_h = f"H * {frac_exacta.numerator}/{frac_exacta.denominator}" if frac_exacta.numerator != 1 else f"H/{frac_exacta.denominator}"
+                # --- NUEVA LÓGICA DE TEXTO ---
+                texto_h = ""
+                # Probamos si es una fracción común
+                if abs(FRAC - 1/2) < 0.001: texto_h = "H/2"
+                elif abs(FRAC - 1/3) < 0.001: texto_h = "H/3"
+                elif abs(FRAC - 1/4) < 0.001: texto_h = "H/4"
+                elif abs(FRAC - 1/5) < 0.001: texto_h = "H/5"
+                else: 
+                    # Si no es ninguna, ponemos el decimal exacto del slider
+                    texto_h = f"{FRAC:.2f} H"
                 
-                # Fracción a la izquierda
-                ax.text(xc - 0.1, y_mid, texto_h, rotation=90, va='center', ha='right', fontsize=8, color='#0066CC', fontweight='bold')
+                # Fracción o Decimal a la izquierda
+                ax.text(xc - 0.1, y_mid, texto_h, rotation=90, va='center', ha='right', fontsize=9, color='#0066CC', fontweight='bold')
                 # Metros a la derecha
-                ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=8)
+                ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=9)
             else:
-                ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=8)
+                # Tramos sobrantes
+                ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=9)
         y_p = yp
 
     dibujar_cotas(ax, 0, 0, 0, H, f'H={H:.2f}m', 1.2, 'vertical')
