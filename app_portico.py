@@ -35,29 +35,30 @@ df_perfiles = cargar_base_perfiles()
 lista_perfiles_totales = df_perfiles['AISC_Manual_Label'].tolist()
 
 def obtener_propiedades_perfil(nombre_perfil):
-    """Busca las propiedades leyendo la tabla de derecha a izquierda (para agarrar el sistema métrico)"""
+    """Busca las propiedades leyendo celda por celda de derecha a izquierda"""
     try:
+        # Traemos la fila entera del perfil
         datos = df_perfiles[df_perfiles['AISC_Manual_Label'] == nombre_perfil].iloc[0]
         
         def buscar_metrica(nombre_columna):
-            # Recorremos las columnas al revés (desde la derecha del Excel hacia la izquierda)
-            for key in reversed(list(datos.keys())):
-                # Le quitamos el ".1" o ".2" que agrega Pandas a las columnas repetidas
+            # LA SOLUCIÓN: usamos .items() para agarrar los valores celda por celda
+            # Así esquivamos el error de que Pandas devuelva múltiples valores juntos
+            for key, val in reversed(list(datos.items())):
                 base_key = str(key).split('.')[0].lower()
                 
                 if base_key == nombre_columna.lower():
-                    val = datos[key]
+                    # Comprobamos directamente el valor de la celda (siempre será un único número)
                     if pd.notna(val):
                         try:
-                            # Intentamos convertirlo a número. Si es válido y > 0, lo devolvemos.
                             numero = float(val)
+                            # Si es un número válido y mayor a cero, nos lo quedamos
                             if numero > 0:
                                 return numero
                         except:
                             pass
             return 0.0
 
-        # Ahora sí, extrae las medidas milimétricas reales
+        # Mapeamos las dimensiones en milímetros y las pasamos a metros
         props = {
             'd': buscar_metrica('d') / 1000.0,       # Peralte
             'bf': buscar_metrica('bf') / 1000.0,     # Ancho ala
@@ -67,7 +68,7 @@ def obtener_propiedades_perfil(nombre_perfil):
             'Iy': buscar_metrica('iy')               # Inercia Y
         }
         
-        # Rescate por si el perfil no tiene datos cargados
+        # Rescate si por algún motivo la tabla no tenía la altura cargada
         if props['d'] == 0:
             return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0}
             
@@ -75,7 +76,6 @@ def obtener_propiedades_perfil(nombre_perfil):
     except Exception as e:
         st.error(f"Error procesando {nombre_perfil}: {e}")
         return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0}
-
 # ============================================================================
 # FUNCIONES DE DIBUJO
 # ============================================================================
