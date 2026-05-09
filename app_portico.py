@@ -325,7 +325,7 @@ def generar_grafico():
     )
     
     # Esta línea la dejás como la tenías, asegurándote que imprima la variable 'info'
-    ax.text(L+1.5, -1, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
+    ax.text(L+1.5, 0, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
    
     st.pyplot(fig, use_container_width=True)
 
