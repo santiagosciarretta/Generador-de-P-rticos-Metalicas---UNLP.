@@ -280,7 +280,7 @@ def generar_grafico():
 
     # INFO
     res = f"Riostras: {len(pos)} (a {FRAC}H)"
-    info = f"TP Nº1 - ESTRUCTURAS METÁLICAS\nCol: {t_col} {m_col} ({o_col})\nViga: {t_viga} {m_viga} ({o_viga})\n{res}"
+    info = f"TP Nº1 - ESTRUCTURAS METÁLICAS\nCol: {perfil_col} ({o_col})\nViga: {perfil_viga} ({o_viga})\n{res}"
     ax.text(L+1.5, H, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=9, va='top')
 
     st.pyplot(fig)
