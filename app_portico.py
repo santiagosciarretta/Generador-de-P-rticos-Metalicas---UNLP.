@@ -35,37 +35,31 @@ df_perfiles = cargar_base_perfiles()
 lista_perfiles_totales = df_perfiles['AISC_Manual_Label'].tolist()
 
 def obtener_propiedades_perfil(nombre_perfil):
-    """Busca las propiedades leyendo celda por celda de derecha a izquierda"""
+    """Busca las propiedades leyendo celda por celda y asumiendo dimensiones en CENTÍMETROS"""
     try:
-        # Traemos la fila entera del perfil
         datos = df_perfiles[df_perfiles['AISC_Manual_Label'] == nombre_perfil].iloc[0]
         
         def buscar_metrica(nombre_columna):
-            # LA SOLUCIÓN: usamos .items() para agarrar los valores celda por celda
-            # Así esquivamos el error de que Pandas devuelva múltiples valores juntos
             for key, val in reversed(list(datos.items())):
                 base_key = str(key).split('.')[0].lower()
-                
                 if base_key == nombre_columna.lower():
-                    # Comprobamos directamente el valor de la celda (siempre será un único número)
                     if pd.notna(val):
                         try:
                             numero = float(val)
-                            # Si es un número válido y mayor a cero, nos lo quedamos
                             if numero > 0:
                                 return numero
                         except:
                             pass
             return 0.0
 
-        # Mapeamos las dimensiones en milímetros y las pasamos a metros
+        # ¡LA CORRECCIÓN MÁGICA!: Dividimos por 100.0 porque la tabla está en cm (no en mm)
         props = {
-            'd': buscar_metrica('d') / 1000.0,       # Peralte
-            'bf': buscar_metrica('bf') / 1000.0,     # Ancho ala
-            'tw': buscar_metrica('tw') / 1000.0,     # Espesor alma
-            'tf': buscar_metrica('tf') / 1000.0,     # Espesor ala
-            'Ix': buscar_metrica('ix'),              # Inercia X
-            'Iy': buscar_metrica('iy')               # Inercia Y
+            'd': buscar_metrica('d') / 100.0,       # Peralte (de cm a m)
+            'bf': buscar_metrica('bf') / 100.0,     # Ancho ala (de cm a m)
+            'tw': buscar_metrica('tw') / 100.0,     # Espesor alma (de cm a m)
+            'tf': buscar_metrica('tf') / 100.0,     # Espesor ala (de cm a m)
+            'Ix': buscar_metrica('ix'),             # Inercia X (queda en cm4)
+            'Iy': buscar_metrica('iy')              # Inercia Y (queda en cm4)
         }
         
         # Rescate si por algún motivo la tabla no tenía la altura cargada
@@ -76,6 +70,7 @@ def obtener_propiedades_perfil(nombre_perfil):
     except Exception as e:
         st.error(f"Error procesando {nombre_perfil}: {e}")
         return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0}
+
 # ============================================================================
 # FUNCIONES DE DIBUJO
 # ============================================================================
