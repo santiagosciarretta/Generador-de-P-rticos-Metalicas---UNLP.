@@ -232,7 +232,7 @@ def generar_grafico():
     lw_ext = 1.5
     lw_int = 1.0
 
-    fig, ax = plt.subplots(figsize=(12, 9))
+    fig, ax = plt.subplots(figsize=(12, 9), dpi=150) # Subir de 100 a 150 ayuda a la precisión
     ax.set_aspect('equal')
     ax.axis('off')
     # Aumentamos el límite X para que entre el cuadro de información desplazado
@@ -260,20 +260,21 @@ def generar_grafico():
         ax.plot([x-D_C/2, x+D_C/2], [0, 0], 'k', lw=lw_ext)
         ax.plot([x-D_C/2, x+D_C/2], [vs, vs], 'k', lw=lw_ext)
         
-        # EJE DE LA COLUMNA (Punto-línea sólido hasta el nudo H)
-        ax.plot([x, x], [0, H], color='black', linestyle='-.', lw=1.0, zorder=3)
+        # EJE DE LA COLUMNA (Refinado a 0.7)
+        ax.plot([x, x], [0, H], color='black', linestyle='-.', lw=0.7, zorder=3)
         
         # DIBUJO DEL ALMA
         if o_col == 'FUERTE':
-            # Alma visible (Sólida)
             ax.plot([x-D_C/2+E_ALA_C, x-D_C/2+E_ALA_C], [0, vs], 'k', lw=lw_int)
             ax.plot([x+D_C/2-E_ALA_C, x+D_C/2-E_ALA_C], [0, vs], 'k', lw=lw_int)
         else:
-            # Alma oculta (Punteada) - SEPARACIÓN DUPLICADA
-            # Multiplicamos por 2 el espesor visual para que se note el "túnel" del alma
-            e_alma_v = max(props_col['tw'] * esc, 0.04) * 2 
-            ax.plot([x-e_alma_v/2, x-e_alma_v/2], [0, vs], 'k--', lw=0.8, alpha=0.5)
-            ax.plot([x+e_alma_v/2, x+e_alma_v/2], [0, vs], 'k--', lw=0.8, alpha=0.5)
+            # Alma oculta (Punteada) - Refinada: más fina y oscura
+            # Usamos el offset doble que pediste antes para máxima claridad
+            offset = max(props_col['tw'] * esc, 0.04) * 2 
+            color_alma = '#333333' # Gris oscuro (casi negro)
+            # Dibujamos con coordenadas explícitas respecto a 'x' para forzar simetría
+            ax.plot([x - offset/2, x - offset/2], [0, vs], color=color_alma, linestyle='--', lw=0.6, zorder=2)
+            ax.plot([x + offset/2, x + offset/2], [0, vs], color=color_alma, linestyle='--', lw=0.6, zorder=2)
             
         if T_APOYO == "Empotrado": dibujar_apoyo_empotrado(ax, x, 0)
         else: dibujar_apoyo_articulado(ax, x, 0)
@@ -283,8 +284,8 @@ def generar_grafico():
     # 3. VIGA Y SECCIÓN LATERAL
     xfi, xfd = D_C/2, L - D_C/2
     
-    # EJE DE LA VIGA (Punto-línea que cruza todo el pórtico)
-    ax.plot([0, L], [H, H], color='black', linestyle='-.', lw=1.0, zorder=3)
+    # EJE DE LA VIGA (Refinado a 0.7)
+    ax.plot([0, L], [H, H], color='black', linestyle='-.', lw=0.7, zorder=3)
     
     # Contorno exterior de la viga
     ax.plot([xfi, xfd], [vi, vi], 'k', lw=lw_ext)
@@ -294,10 +295,12 @@ def generar_grafico():
         ax.plot([xfi, xfd], [vi+E_ALA_V, vi+E_ALA_V], 'k', lw=lw_int)
         ax.plot([xfi, xfd], [vs-E_ALA_V, vs-E_ALA_V], 'k', lw=lw_int)
     else:
-        # Alma oculta (Punteada) - SEPARACIÓN DUPLICADA
-        e_alma_v_viga = max(props_viga['tw'] * esc, 0.04) * 2
-        ax.plot([xfi, xfd], [H-e_alma_v_viga/2, H-e_alma_v_viga/2], 'k--', lw=0.8, alpha=0.5)
-        ax.plot([xfi, xfd], [H+e_alma_v_viga/2, H+e_alma_v_viga/2], 'k--', lw=0.8, alpha=0.5)
+        # Alma oculta (Punteada) - Refinada: más fina y oscura
+        offset_v = max(props_viga['tw'] * esc, 0.04) * 2
+        color_alma = '#333333'
+        # Forzamos simetría absoluta respecto a H
+        ax.plot([xfi, xfd], [H - offset_v/2, H - offset_v/2], color=color_alma, linestyle='--', lw=0.6, zorder=2)
+        ax.plot([xfi, xfd], [H + offset_v/2, H + offset_v/2], color=color_alma, linestyle='--', lw=0.6, zorder=2)
 
     # [CORRECCIÓN]: Dibujo del perfil de la viga a la derecha
     x_viga_sec = L + 1.8
