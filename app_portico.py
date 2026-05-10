@@ -202,10 +202,11 @@ o_viga = st.sidebar.radio("Orientación (Viga)", ["FUERTE", "DEBIL"], key="ov", 
 
 st.sidebar.markdown("---")
 
-with st.sidebar.expander("Riostras"):
-    NUDOS = st.sidebar.checkbox("Nudos", value=True)
-    CANT = st.sidebar.number_input("Cant. Intermedias", min_value=0, value=2, step=1)
-    FRAC = st.sidebar.slider("Fracción H", 0.1, 1.0, 0.33)
+with st.sidebar.expander("Arriostramientos"):
+    # IMPORTANTE: Dentro del expander usamos st. directamente, sin el .sidebar
+    NUDOS = st.checkbox("Nudos superior", value=True)
+    CANT = st.number_input("Cant. Intermedios", min_value=0, value=2, step=1)
+    FRAC = st.slider("Fracción H", 0.1, 1.0, 0.33)
 
 T_APOYO = st.sidebar.selectbox("Apoyo", ["Empotrado", "Articulado"])
 
