@@ -254,13 +254,13 @@ def generar_grafico():
    # 2. COLUMNAS
     vs, vi = H + D_V/2, H - D_V/2
     for x in [0, L]:
-        # Contorno exterior de la columna (Sólido)
+        # Contorno exterior de la columna
         ax.plot([x-D_C/2, x-D_C/2], [0, vs], 'k', lw=lw_ext)
         ax.plot([x+D_C/2, x+D_C/2], [0, vs], 'k', lw=lw_ext)
         ax.plot([x-D_C/2, x+D_C/2], [0, 0], 'k', lw=lw_ext)
         ax.plot([x-D_C/2, x+D_C/2], [vs, vs], 'k', lw=lw_ext)
         
-        # EJE DE LA COLUMNA (Siempre punto-línea y llega justo hasta H)
+        # EJE DE LA COLUMNA (Punto-línea sólido hasta el nudo H)
         ax.plot([x, x], [0, H], color='black', linestyle='-.', lw=1.0, zorder=3)
         
         # DIBUJO DEL ALMA
@@ -269,9 +269,9 @@ def generar_grafico():
             ax.plot([x-D_C/2+E_ALA_C, x-D_C/2+E_ALA_C], [0, vs], 'k', lw=lw_int)
             ax.plot([x+D_C/2-E_ALA_C, x+D_C/2-E_ALA_C], [0, vs], 'k', lw=lw_int)
         else:
-            # Alma oculta (Punteada) - Representa los límites del alma tras el ala
-            # Usamos un ancho menor para el alma en eje débil (basado en el espesor real)
-            e_alma_v = max(props_col['tw'] * esc, 0.04)
+            # Alma oculta (Punteada) - SEPARACIÓN DUPLICADA
+            # Multiplicamos por 2 el espesor visual para que se note el "túnel" del alma
+            e_alma_v = max(props_col['tw'] * esc, 0.04) * 2 
             ax.plot([x-e_alma_v/2, x-e_alma_v/2], [0, vs], 'k--', lw=0.8, alpha=0.5)
             ax.plot([x+e_alma_v/2, x+e_alma_v/2], [0, vs], 'k--', lw=0.8, alpha=0.5)
             
@@ -283,7 +283,7 @@ def generar_grafico():
     # 3. VIGA Y SECCIÓN LATERAL
     xfi, xfd = D_C/2, L - D_C/2
     
-    # EJE DE LA VIGA (Punto-línea de extremo a extremo del pórtico para que cruce las columnas)
+    # EJE DE LA VIGA (Punto-línea que cruza todo el pórtico)
     ax.plot([0, L], [H, H], color='black', linestyle='-.', lw=1.0, zorder=3)
     
     # Contorno exterior de la viga
@@ -291,12 +291,11 @@ def generar_grafico():
     ax.plot([xfi, xfd], [vs, vs], 'k', lw=lw_ext)
     
     if o_viga == 'FUERTE':
-        # Alma visible (Sólida)
         ax.plot([xfi, xfd], [vi+E_ALA_V, vi+E_ALA_V], 'k', lw=lw_int)
         ax.plot([xfi, xfd], [vs-E_ALA_V, vs-E_ALA_V], 'k', lw=lw_int)
     else:
-        # Alma oculta (Punteada)
-        e_alma_v_viga = max(props_viga['tw'] * esc, 0.04)
+        # Alma oculta (Punteada) - SEPARACIÓN DUPLICADA
+        e_alma_v_viga = max(props_viga['tw'] * esc, 0.04) * 2
         ax.plot([xfi, xfd], [H-e_alma_v_viga/2, H-e_alma_v_viga/2], 'k--', lw=0.8, alpha=0.5)
         ax.plot([xfi, xfd], [H+e_alma_v_viga/2, H+e_alma_v_viga/2], 'k--', lw=0.8, alpha=0.5)
 
