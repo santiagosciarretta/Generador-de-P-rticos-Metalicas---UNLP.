@@ -237,7 +237,7 @@ def generar_grafico():
     ax.axis('off')
 
     # Aumentamos el límite X para que entre el cuadro de información desplazado
-    ax.set_xlim(-4, L + 5); ax.set_ylim(-4, H + 2)
+    ax.set_xlim(-4.01, L + 5); ax.set_ylim(-4.01, H + 2)
 
     # 1. EJES GLOBALES
     color_x, color_y, color_z = '#CC0000', '#008000', '#0066CC'
@@ -254,50 +254,50 @@ def generar_grafico():
 
    # 2. COLUMNAS
     vs, vi = H + D_V/2, H - D_V/2
+    
+    # Definimos constantes de grosor para que NO dependan de ninguna otra variable
+    GROSOR_EJE = 0.8
+    GROSOR_ALMA_OCULTA = 0.6
+    COLOR_ALMA_GRIS = '#222222' # Un gris casi negro, muy serio
+    
     for x in [0, L]:
-        # Contorno exterior (igual)
-        ax.plot([x-D_C/2, x-D_C/2], [0, vs], 'k', lw=lw_ext)
-        ax.plot([x+D_C/2, x+D_C/2], [0, vs], 'k', lw=lw_ext)
-        ax.plot([x-D_C/2, x+D_C/2], [0, 0], 'k', lw=lw_ext)
-        ax.plot([x-D_C/2, x+D_C/2], [vs, vs], 'k', lw=lw_ext)
+        # Contorno (Negro sólido)
+        ax.plot([x-D_C/2, x-D_C/2], [0, vs], 'k', lw=lw_ext, zorder=1)
+        ax.plot([x+D_C/2, x+D_C/2], [0, vs], 'k', lw=lw_ext, zorder=1)
+        ax.plot([x-D_C/2, x+D_C/2], [0, 0], 'k', lw=lw_ext, zorder=1)
+        ax.plot([x-D_C/2, x+D_C/2], [vs, vs], 'k', lw=lw_ext, zorder=1)
         
-        # EJE DE LA COLUMNA (Unificado a 0.8 para evitar variaciones visuales)
-        ax.plot([x, x], [0, H], color='black', linestyle='-.', lw=0.8, zorder=3)
+        # EJE BARICÉNTRICO (Punto-línea negro absoluto)
+        # Agregamos snap=True para que la línea se "pegue" a los píxeles y no se vea borrosa
+        ax.plot([x, x], [0, H], color='black', linestyle='-.', lw=GROSOR_EJE, zorder=4, snap=True)
         
         if o_col == 'FUERTE':
-            ax.plot([x-D_C/2+E_ALA_C, x-D_C/2+E_ALA_C], [0, vs], 'k', lw=lw_int)
-            ax.plot([x+D_C/2-E_ALA_C, x+D_C/2-E_ALA_C], [0, vs], 'k', lw=lw_int)
+            # Alma visible (Negra como el contorno)
+            ax.plot([x-D_C/2+E_ALA_C, x-D_C/2+E_ALA_C], [0, vs], 'k', lw=lw_int, zorder=2)
+            ax.plot([x+D_C/2-E_ALA_C, x+D_C/2-E_ALA_C], [0, vs], 'k', lw=lw_int, zorder=2)
         else:
-            # ALMA OSCURECIDA: Gris carbón (#111111) y un poco más definida
-            offset = max(props_col['tw'] * esc, 0.04) * 2 
-            color_alma_oscura = '#111111' 
-            ax.plot([x - offset/2, x - offset/2], [0, vs], color=color_alma_oscura, linestyle='--', lw=0.7, zorder=2)
-            ax.plot([x + offset/2, x + offset/2], [0, vs], color=color_alma_oscura, linestyle='--', lw=0.7, zorder=2)
-            
-        if T_APOYO == "Empotrado": dibujar_apoyo_empotrado(ax, x, 0)
-        else: dibujar_apoyo_articulado(ax, x, 0)
-        
-        dibujar_seccion_ipe(ax, x, -1.5, orientacion=o_col)
+            # Alma oculta (Gris oscuro punteado)
+            off = max(props_col['tw'] * esc, 0.04) * 2 
+            ax.plot([x - off/2, x - off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
+            ax.plot([x + off/2, x + off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
 
     # 3. VIGA Y SECCIÓN LATERAL
+    # EJE VIGA
+    ax.plot([0, L], [H, H], color='black', linestyle='-.', lw=GROSOR_EJE, zorder=4, snap=True)
+    
     xfi, xfd = D_C/2, L - D_C/2
-    
-    # EJE DE LA VIGA (Unificado a 0.8)
-    ax.plot([0, L], [H, H], color='black', linestyle='-.', lw=0.8, zorder=3)
-    
-    # Contorno exterior viga
-    ax.plot([xfi, xfd], [vi, vi], 'k', lw=lw_ext)
-    ax.plot([xfi, xfd], [vs, vs], 'k', lw=lw_ext)
+    # Contorno Viga
+    ax.plot([xfi, xfd], [vi, vi], 'k', lw=lw_ext, zorder=1)
+    ax.plot([xfi, xfd], [vs, vs], 'k', lw=lw_ext, zorder=1)
     
     if o_viga == 'FUERTE':
-        ax.plot([xfi, xfd], [vi+E_ALA_V, vi+E_ALA_V], 'k', lw=lw_int)
-        ax.plot([xfi, xfd], [vs-E_ALA_V, vs-E_ALA_V], 'k', lw=lw_int)
+        ax.plot([xfi, xfd], [vi+E_ALA_V, vi+E_ALA_V], 'k', lw=lw_int, zorder=2)
+        ax.plot([xfi, xfd], [vs-E_ALA_V, vs-E_ALA_V], 'k', lw=lw_int, zorder=2)
     else:
-        # ALMA OSCURECIDA VIGA
-        offset_v = max(props_viga['tw'] * esc, 0.04) * 2
-        color_alma_oscura = '#111111'
-        ax.plot([xfi, xfd], [H - offset_v/2, H - offset_v/2], color=color_alma_oscura, linestyle='--', lw=0.7, zorder=2)
-        ax.plot([xfi, xfd], [H + offset_v/2, H + offset_v/2], color=color_alma_oscura, linestyle='--', lw=0.7, zorder=2)
+        # Alma oculta Viga
+        off_v = max(props_viga['tw'] * esc, 0.04) * 2
+        ax.plot([xfi, xfd], [H - off_v/2, H - off_v/2], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
+        ax.plot([xfi, xfd], [H + off_v/2, H + off_v/2], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
 
     # [CORRECCIÓN]: Dibujo del perfil de la viga a la derecha
     x_viga_sec = L + 1.8
