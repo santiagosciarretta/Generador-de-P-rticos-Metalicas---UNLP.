@@ -281,6 +281,13 @@ def generar_grafico():
             ax.plot([x - off/2, x - off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
             ax.plot([x + off/2, x + off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
 
+if T_APOYO == "Empotrado": dibujar_apoyo_empotrado(ax, x, 0)
+        else: dibujar_apoyo_articulado(ax, x, 0)
+        
+        # [CORRECCIÓN]: Secciones de columna subidas a la cota -1.5
+        dibujar_seccion_ipe(ax, x, -1.5, orientacion=o_col)
+
+
     # 3. VIGA Y SECCIÓN LATERAL
     # EJE VIGA
     ax.plot([0, L], [H, H], color='black', linestyle='-.', lw=GROSOR_EJE, zorder=4, snap=True)
