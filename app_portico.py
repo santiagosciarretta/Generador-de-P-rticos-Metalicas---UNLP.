@@ -168,8 +168,15 @@ def dibujar_cotas(ax, x1, y1, x2, y2, texto, offset=0.8, orientacion='horizontal
 # INTERFAZ SIDEBAR
 # ============================================================================
 st.sidebar.header("⚙️ Parámetros")
+st.sidebar.markdown("### 1) Definición geométrica") # Nuevo encabezado numerado
+
 H = st.sidebar.number_input("Altura (H) [m]", value=5.5)
 L = st.sidebar.number_input("Longitud (L) [m]", value=7.0)
+
+# Nuevo parámetro para el cálculo de K y representación gráfica
+SISTEMA = st.sidebar.radio("Sistema Lateral", 
+                           ["No arriostrado (Translacional)", "Arriostrado (Intranslacional)"],
+                           help="Define si el pórtico permite o no el desplazamiento lateral.")
 
 # Obtenemos todas las familias de la base de datos
 todas_las_series = df_perfiles.iloc[:, 0].dropna().unique().tolist()
@@ -309,10 +316,17 @@ def generar_grafico():
         ax.plot([xfi, xfd], [H - off_v/2, H - off_v/2], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
         ax.plot([xfi, xfd], [H + off_v/2, H + off_v/2], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
 
-    # [CORRECCIÓN]: Dibujo del perfil de la viga a la derecha
+    # Dibujo del perfil de la viga a la derecha
     x_viga_sec = L + 1.8
     ax.plot([xfd, x_viga_sec], [H, H], 'k-.', lw=0.8, alpha=0.4) # Línea de proyección
     dibujar_seccion_viga(ax, x_viga_sec, H, orientacion=o_viga)
+
+    # 3.5 CRUCES DE SAN ANDRÉS (Si el sistema es Arriostrado)
+    if "Arriostrado" in SISTEMA:
+        # Dibujamos las diagonales desde los apoyos (0,0) y (L,0) hasta los nudos superiores (L,H) y (0,H)
+        color_x = '#555555' # Gris intermedio para no saturar
+        ax.plot([0, L], [0, H], color=color_x, linestyle='--', lw=1.0, zorder=0, alpha=0.6)
+        ax.plot([L, 0], [0, H], color=color_x, linestyle='--', lw=1.0, zorder=0, alpha=0.6)
 
     # 4. RIOSTRAS Y COTAS
     pos = []
@@ -359,16 +373,16 @@ def generar_grafico():
     dibujar_cotas(ax, 0, H, L, H, f'L={L:.2f}m', 1.0, 'horizontal')
 
     # INFO
-    # a) Convertimos el True/False del checkbox a "Sí" o "No"
     texto_nudos = "Sí" if NUDOS else "No"
+    tipo_sist = "Intranslacional" if "Arriostrado" in SISTEMA else "Translacional"
     
-    # b) Armamos el nuevo bloque de texto usando la variable CANT del panel lateral
     info = (
         f"TP Nº1 - ESTRUCTURAS METÁLICAS\n"
+        f"Sistema: {tipo_sist}\n" # Agregado
         f"Col: {perfil_col} ({o_col})\n"
         f"Viga: {perfil_viga} ({o_viga})\n"
         f"Arriostramientos nudos sup.: {texto_nudos}\n"
-        f"Arriostramientos intermedios: {CANT}"
+        f"Arriostramientos intermedios: {int(CANT)}"
     )
 
     
