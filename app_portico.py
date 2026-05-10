@@ -281,7 +281,14 @@ def generar_grafico():
             ax.plot([x - off/2, x - off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
             ax.plot([x + off/2, x + off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
 
-
+	# LLAMADA A LOS APOYOS (Asegurate que estas líneas estén acá)
+        if T_APOYO == "Empotrado": 
+            dibujar_apoyo_empotrado(ax, x, 0)
+        else: 
+            dibujar_apoyo_articulado(ax, x, 0)
+        
+        # Sección de columna en planta
+        dibujar_seccion_ipe(ax, x, -1.5, orientacion=o_col)
 
     # 3. VIGA Y SECCIÓN LATERAL
     # EJE VIGA
