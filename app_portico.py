@@ -232,7 +232,7 @@ def generar_grafico():
     lw_ext = 1.5
     lw_int = 1.0
 
-    fig, ax = plt.subplots(figsize=(12, 9), dpi=200) 
+    fig, ax = plt.subplots(figsize=(12, 9), dpi=300) 
     ax.set_aspect('equal')
     ax.axis('off')
 
