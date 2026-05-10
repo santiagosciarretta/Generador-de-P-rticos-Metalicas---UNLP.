@@ -251,35 +251,54 @@ def generar_grafico():
     ax.text(xo+dx_y+0.2, yo+dy_y+0.1, 'Y', color=color_y, fontweight='bold', ha='left')
     ax.plot([xo], [yo], 'o', color='black', markersize=4)
 
-    # 2. COLUMNAS
+   # 2. COLUMNAS
     vs, vi = H + D_V/2, H - D_V/2
     for x in [0, L]:
+        # Contorno exterior de la columna (Sólido)
         ax.plot([x-D_C/2, x-D_C/2], [0, vs], 'k', lw=lw_ext)
         ax.plot([x+D_C/2, x+D_C/2], [0, vs], 'k', lw=lw_ext)
         ax.plot([x-D_C/2, x+D_C/2], [0, 0], 'k', lw=lw_ext)
         ax.plot([x-D_C/2, x+D_C/2], [vs, vs], 'k', lw=lw_ext)
         
+        # EJE DE LA COLUMNA (Siempre punto-línea y llega justo hasta H)
+        ax.plot([x, x], [0, H], color='black', linestyle='-.', lw=1.0, zorder=3)
+        
+        # DIBUJO DEL ALMA
         if o_col == 'FUERTE':
+            # Alma visible (Sólida)
             ax.plot([x-D_C/2+E_ALA_C, x-D_C/2+E_ALA_C], [0, vs], 'k', lw=lw_int)
             ax.plot([x+D_C/2-E_ALA_C, x+D_C/2-E_ALA_C], [0, vs], 'k', lw=lw_int)
         else:
-            ax.plot([x, x], [0, vs], 'k--', lw=lw_int, alpha=0.6)
+            # Alma oculta (Punteada) - Representa los límites del alma tras el ala
+            # Usamos un ancho menor para el alma en eje débil (basado en el espesor real)
+            e_alma_v = max(props_col['tw'] * esc, 0.04)
+            ax.plot([x-e_alma_v/2, x-e_alma_v/2], [0, vs], 'k--', lw=0.8, alpha=0.5)
+            ax.plot([x+e_alma_v/2, x+e_alma_v/2], [0, vs], 'k--', lw=0.8, alpha=0.5)
             
         if T_APOYO == "Empotrado": dibujar_apoyo_empotrado(ax, x, 0)
         else: dibujar_apoyo_articulado(ax, x, 0)
         
-        # [CORRECCIÓN]: Secciones de columna subidas a la cota -1.5
         dibujar_seccion_ipe(ax, x, -1.5, orientacion=o_col)
 
     # 3. VIGA Y SECCIÓN LATERAL
     xfi, xfd = D_C/2, L - D_C/2
+    
+    # EJE DE LA VIGA (Punto-línea de extremo a extremo del pórtico para que cruce las columnas)
+    ax.plot([0, L], [H, H], color='black', linestyle='-.', lw=1.0, zorder=3)
+    
+    # Contorno exterior de la viga
     ax.plot([xfi, xfd], [vi, vi], 'k', lw=lw_ext)
     ax.plot([xfi, xfd], [vs, vs], 'k', lw=lw_ext)
+    
     if o_viga == 'FUERTE':
+        # Alma visible (Sólida)
         ax.plot([xfi, xfd], [vi+E_ALA_V, vi+E_ALA_V], 'k', lw=lw_int)
         ax.plot([xfi, xfd], [vs-E_ALA_V, vs-E_ALA_V], 'k', lw=lw_int)
     else:
-        ax.plot([xfi, xfd], [H, H], 'k--', lw=lw_int, alpha=0.6)
+        # Alma oculta (Punteada)
+        e_alma_v_viga = max(props_viga['tw'] * esc, 0.04)
+        ax.plot([xfi, xfd], [H-e_alma_v_viga/2, H-e_alma_v_viga/2], 'k--', lw=0.8, alpha=0.5)
+        ax.plot([xfi, xfd], [H+e_alma_v_viga/2, H+e_alma_v_viga/2], 'k--', lw=0.8, alpha=0.5)
 
     # [CORRECCIÓN]: Dibujo del perfil de la viga a la derecha
     x_viga_sec = L + 1.8
