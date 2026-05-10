@@ -323,10 +323,11 @@ def generar_grafico():
 
     # 3.5 CRUCES DE SAN ANDRÉS (Si el sistema es Arriostrado)
     if "Arriostrado" in SISTEMA:
-        # Dibujamos las diagonales desde los apoyos (0,0) y (L,0) hasta los nudos superiores (L,H) y (0,H)
-        color_x = '#555555' # Gris intermedio para no saturar
-        ax.plot([0, L], [0, H], color=color_x, linestyle='--', lw=1.0, zorder=0, alpha=0.6)
-        ax.plot([L, 0], [0, H], color=color_x, linestyle='--', lw=1.0, zorder=0, alpha=0.6)
+        # Usamos un azul técnico que resalta sobre el blanco sin ser chillón
+        color_x = '#2E5A88' 
+        # Dibujamos las diagonales (X)
+        ax.plot([0, L], [0, H], color=color_x, linestyle='--', lw=1.2, zorder=0, alpha=0.8)
+        ax.plot([L, 0], [0, H], color=color_x, linestyle='--', lw=1.2, zorder=0, alpha=0.8)
 
     # 4. RIOSTRAS Y COTAS
     pos = []
@@ -374,11 +375,12 @@ def generar_grafico():
 
     # INFO
     texto_nudos = "Sí" if NUDOS else "No"
-    tipo_sist = "Intranslacional" if "Arriostrado" in SISTEMA else "Translacional"
+    # Simplificamos el nombre para el cuadro resumen
+    tipo_portico_txt = "Arriostrado" if "Arriostrado" in SISTEMA else "No arriostrado"
     
     info = (
         f"TP Nº1 - ESTRUCTURAS METÁLICAS\n"
-        f"Sistema: {tipo_sist}\n" # Agregado
+        f"Tipo de Pórtico: {tipo_portico_txt}\n"
         f"Col: {perfil_col} ({o_col})\n"
         f"Viga: {perfil_viga} ({o_viga})\n"
         f"Arriostramientos nudos sup.: {texto_nudos}\n"
