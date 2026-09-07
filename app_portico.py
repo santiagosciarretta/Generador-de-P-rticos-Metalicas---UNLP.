@@ -559,6 +559,7 @@ with pestana_3:
             st.markdown("**4.3 Tensiones Elásticas de Pandeo ($F_e$)**")
             
             st.markdown("*a) Pandeo Flexional (AISC Eq. E3-4)*")
+            Fe_flex = (np.pi**2 * E_acero) / (lambda_max**2)
             st.latex(r"F_{{e(\text{{flex}})}} = \frac{\pi^2 E}{(K_y L_y / r)^2}")
             st.latex(rf"F_{{e(\text{{flex}})}} = \frac{{\pi^2 \cdot {E_acero}}}{{{lambda_max:.1f}^2}} = {Fe_flex:.1f} \text{{ MPa}}")
             
