@@ -10,13 +10,17 @@ from fractions import Fraction
 # ============================================================================
 st.set_page_config(page_title="Generador de Pórticos - UNLP", layout="wide")
 
-# CSS para agrandar las pestañas y mejorar la visibilidad
+# CSS Agresivo para forzar el tamaño de las pestañas
 st.markdown("""
 <style>
-    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: #2E5A88;
+    button[data-baseweb="tab"] div[data-testid="stMarkdownContainer"] p {
+        font-size: 1.5rem !important;
+        font-weight: 700 !important;
+        color: #2E5A88 !important;
+    }
+    button[data-baseweb="tab"] {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -150,43 +154,63 @@ def dibujar_cotas(ax, x1, y1, x2, y2, texto, offset=0.8, orientacion='horizontal
         ax.text(x1 - offset - 0.3, (y1 + y2) / 2, texto, ha='right', va='center', fontsize=10, fontweight='bold', rotation=90)
 
 # ============================================================================
-# FUNCIONES DE DIBUJO 2D (Cortes Dinámicos Didácticos)
+# FUNCIONES DE DIBUJO 2D (Cortes Dinámicos Didácticos - NUEVO)
 # ============================================================================
 def graficar_corte_cinematico(orientacion, eje_rotacion):
-    """Dibuja la vista superior (Plano X-Y) con la sección y el vector momento"""
+    """Dibuja la vista superior y el vector momento doble punta (regla de la mano derecha)"""
     fig, ax = plt.subplots(figsize=(3, 3), dpi=100)
     ax.set_aspect('equal')
     ax.axis('off')
-    ax.set_xlim(-1.2, 1.2); ax.set_ylim(-1.2, 1.2)
+    ax.set_xlim(-1.4, 1.4); ax.set_ylim(-1.4, 1.4)
 
-    # Ejes Globales
+    # Ejes Globales (Cruz central punteada)
     ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
     ax.axvline(0, color='gray', linestyle='--', linewidth=0.8)
-    ax.text(1.05, 0.05, 'X', color='gray', fontsize=10, fontweight='bold')
-    ax.text(0.05, 1.05, 'Y', color='gray', fontsize=10, fontweight='bold')
+    ax.text(1.25, 0.05, 'X', color='gray', fontsize=10, fontweight='bold')
+    ax.text(0.05, 1.25, 'Y', color='gray', fontsize=10, fontweight='bold')
 
-    # Perfil Genérico
+    # Geometría Genérica del Perfil
     w, h, ta, tm = 0.8, 1.2, 0.15, 0.08
+    
     if orientacion == 'FUERTE':
         # Eje fuerte en Y (Alma en X, Alas en Y)
         ax.add_patch(patches.Rectangle((-w/2, -tm/2), w, tm, facecolor='#A0A0A0', edgecolor='black'))
         ax.add_patch(patches.Rectangle((-w/2, -h/2), ta, h, facecolor='#606060', edgecolor='black'))
         ax.add_patch(patches.Rectangle((w/2-ta, -h/2), ta, h, facecolor='#606060', edgecolor='black'))
+        # Textos didácticos locales
+        ax.text(0.3, -h/2 - 0.25, 'Eje Débil (y)', color='#606060', fontsize=8)
+        ax.text(-w/2 - 0.45, 0.2, 'Eje Fuerte (x)', color='#606060', fontsize=8, rotation=90)
     else:
         # Eje débil en Y (Alma en Y, Alas en X)
         ax.add_patch(patches.Rectangle((-tm/2, -h/2), tm, h, facecolor='#A0A0A0', edgecolor='black'))
         ax.add_patch(patches.Rectangle((-w/2, h/2-ta), w, ta, facecolor='#606060', edgecolor='black'))
         ax.add_patch(patches.Rectangle((-w/2, -h/2), w, ta, facecolor='#606060', edgecolor='black'))
+        # Textos didácticos locales
+        ax.text(0.3, -h/2 - 0.25, 'Eje Fuerte (x)', color='#606060', fontsize=8)
+        ax.text(-w/2 - 0.45, 0.2, 'Eje Débil (y)', color='#606060', fontsize=8, rotation=90)
 
-    # Vector Momento Flector
+    # DIBUJO DEL VECTOR MOMENTO (Doble punta)
+    def dibujar_vector_momento(x0, y0, dx, dy, color, label):
+        # Línea central gruesa
+        ax.plot([x0, x0+dx], [y0, y0+dy], color=color, lw=2.5)
+        # Punta 1 (Final)
+        ax.annotate('', xy=(x0+dx, y0+dy), xytext=(x0+dx-dx*0.01, y0+dy-dy*0.01),
+                    arrowprops=dict(arrowstyle="->", lw=2.5, color=color, mutation_scale=20))
+        # Punta 2 (Desplazada hacia atrás)
+        offset = 0.18
+        L = np.hypot(dx, dy)
+        ux, uy = dx/L, dy/L
+        ax.annotate('', xy=(x0+dx - ux*offset, y0+dy - uy*offset), xytext=(x0+dx - ux*(offset+0.01), y0+dy - uy*(offset+0.01)),
+                    arrowprops=dict(arrowstyle="->", lw=2.5, color=color, mutation_scale=20))
+        # Etiqueta desplazada
+        ax.text(x0+dx + ux*0.1 - uy*0.25, y0+dy + uy*0.1 + ux*0.25, label, color=color, fontsize=14, fontweight='bold', ha='center')
+
     if eje_rotacion == 'Y':
-        kw = dict(arrowstyle="Simple, tail_width=2, head_width=8, head_length=10", color="#CC0000")
-        ax.add_patch(patches.FancyArrowPatch((0.4, -0.7), (0.4, 0.7), connectionstyle="arc3,rad=.4", **kw))
-        ax.text(0.65, 0, '$M_Y$', color='#CC0000', fontsize=14, fontweight='bold', va='center')
+        # Vector alineado en el Eje Y Global
+        dibujar_vector_momento(0, -0.7, 0, 1.4, '#CC0000', '$M_Y$')
     else:
-        kw = dict(arrowstyle="Simple, tail_width=2, head_width=8, head_length=10", color="#0066CC")
-        ax.add_patch(patches.FancyArrowPatch((-0.7, 0.4), (0.7, 0.4), connectionstyle="arc3,rad=-.4", **kw))
-        ax.text(0, 0.65, '$M_X$', color='#0066CC', fontsize=14, fontweight='bold', ha='center')
+        # Vector alineado en el Eje X Global
+        dibujar_vector_momento(-0.7, 0, 1.4, 0, '#0066CC', '$M_X$')
 
     return fig
 
@@ -246,7 +270,6 @@ def generar_datos_y_grafico():
     I_c_plano = props_col['Ix'] if o_col == 'FUERTE' else props_col['Iy']
     I_v_plano = props_viga['Ix'] if o_viga == 'FUERTE' else props_viga['Iy']
     
-    # Radios de giro
     r_plano = props_col['rX'] if o_col == 'FUERTE' else props_col['rY']
     r_fuera = props_col['rY'] if o_col == 'FUERTE' else props_col['rX']
     
@@ -357,7 +380,6 @@ with pestana_2:
     if G_Y_sup is None or r_plano == 0:
         st.warning("⚠️ Faltan datos mecánicos en el catálogo para procesar los cálculos.")
     else:
-        # Nomenclatura local para impresión
         lbl_c_plano = "fuerte" if o_col == "FUERTE" else "débil"
         lbl_v_plano = "fuerte" if o_viga == "FUERTE" else "débil"
         lbl_c_fuera = "débil" if o_col == "FUERTE" else "fuerte"
@@ -389,7 +411,7 @@ with pestana_2:
                 st.latex(r"K_Y = \sqrt{\frac{1.6 G_A G_B + 4.0(G_A + G_B) + 7.5}{G_A + G_B + 7.5}}")
             st.success(f"### $K_Y = {K_Y:.3f}$")
 
-            st.subheader("1.3 Verificación de Esbeltez ($\lambda_Y$)")
+            st.subheader("1.3 Verificación de Esbelteces ($\lambda_Y$)")
             lambda_Y = (K_Y * (H*100)) / r_plano
             st.latex(rf"\lambda_Y = \frac{{K_Y \cdot L_{{col}}}}{{r_{{\text{{{lbl_c_plano}(col)}}}}}}")
             st.latex(rf"\lambda_Y = \frac{{{K_Y:.2f} \cdot {H*100:.0f} \text{{ cm}}}}{{{r_plano:.2f} \text{{ cm}}}} = {lambda_Y:.1f}")
@@ -414,7 +436,7 @@ with pestana_2:
             st.info(f"**Tramo Evaluado:** Desde apoyo hasta el primer nudo arriostrado.\n\n**Condición:** {txt_apoyo}")
             st.success(f"### $K_X = {K_X_fuera:.2f}$")
 
-            st.subheader("2.2 Verificación de Esbeltez ($\lambda_X$)")
+            st.subheader("2.2 Verificación de Esbelteces ($\lambda_X$)")
             L_tramo_y = (FRAC * H) * 100
             lambda_X = (K_X_fuera * L_tramo_y) / r_fuera
             st.latex(rf"\lambda_X = \frac{{K_X \cdot L_{{tramo}}}}{{r_{{\text{{{lbl_c_fuera}(col)}}}}}}")
