@@ -257,7 +257,7 @@ T_APOYO = st.sidebar.selectbox("Apoyo Inferior", ["Empotrado", "Articulado"])
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 3) Criterios de Cálculo")
-CRITERIO = st.sidebar.radio("Condiciones de Borde (G y K)", ["Sugeridos (AISC/CIRSOC)", "Teóricos Ideales"])
+CRITERIO = st.sidebar.radio("Condiciones de Borde (para cálculo de G y K)", ["Sugeridos (AISC/CIRSOC)", "Teóricos Ideales"])
 CW_CRITERIO = st.selectbox("Constante de Alabeo ($C_w$)", ["Exacto (Catálogo AISC)", "Teórico Simplificado (Doble T)"])
 
 # ============================================================================
@@ -311,7 +311,6 @@ def generar_datos_y_grafico():
         kl_tramo = k_tramo * long_tramo_cm
         tramos_fuera.append({'desc': desc_tramo, 'k': k_tramo, 'L': long_tramo_cm, 'KL': kl_tramo})
     
-    # Seleccionar el tramo más desfavorable fuera del plano
     tramo_peor = max(tramos_fuera, key=lambda t: t['KL'])
     K_X_fuera = tramo_peor['k']
     L_tramo_y = tramo_peor['L']
@@ -446,7 +445,6 @@ with pestana_2:
                 K_Y = np.sqrt((1.6*G_Y_sup*G_Y_inf + 4.0*(G_Y_sup+G_Y_inf) + 7.5) / (G_Y_sup + G_Y_inf + 7.5))
                 st.latex(r"K_Y = \sqrt{\frac{1.6 G_A G_B + 4.0(G_A + G_B) + 7.5}{G_A + G_B + 7.5}}")
             
-            # K_Y mostrado de forma estándar en LaTeX
             st.latex(rf"K_Y = {K_Y:.3f}")
 
             st.write("")
@@ -473,7 +471,6 @@ with pestana_2:
         with col_calc2:
             st.markdown("**2.1 Análisis de tramos y Factor de longitud efectiva ($K_X$)**")
             
-            # Desglose didáctico multi-tramo
             resumen_tramos = ""
             for t in tramos_fuera:
                 resumen_tramos += f"- **Tramo {t['desc']}:** $L = {t['L']:.1f}\\text{{ cm}}$, $K = {t['k']:.2f} \\implies K \\cdot L = {t['KL']:.1f}\\text{{ cm}}$\n"
@@ -513,7 +510,7 @@ with pestana_3:
                 st.markdown(f"**Factores y Esbelteces:**\n- $G_Y$ sup/inf = {G_Y_sup:.3f} / {G_Y_inf:.2f}\n- $K_Y = {K_Y:.3f}$ | $\\lambda_Y = {lambda_Y:.1f}$\n- $K_X = {K_X_fuera:.2f}$ | $\\lambda_X = {lambda_X:.1f}$\n- **$\\lambda_{{max}} = {lambda_max:.1f}$**")
 
         st.markdown("---")
-        st.subheader("4. Resistencia de Diseño a Compresión ($P_d$)")
+        st.subheader("4. Verificación y Resistencia de Diseño a Compresión")
 
         col_mat, col_local = st.columns(2)
         
@@ -528,24 +525,27 @@ with pestana_3:
             
             bf_cm, tf_cm, tw_cm, d_cm = props_col['bf']*100, props_col['tf']*100, props_col['tw']*100, props_col['d']*100
             
-            # Alas
+            # Alas (Tabla B4.1.A - Caso 2)
             lambda_f = bf_cm / (2 * tf_cm)
             lambda_rf = 0.56 * np.sqrt(E_acero / Fy)
-            st.latex(rf"\lambda_f = \frac{{b_f}}{{2 t_f}} = {lambda_f:.2f} \quad \text{{Límite: }} {lambda_rf:.2f}")
+            st.markdown("*(Tabla B4.1.A - Caso 2)*")
+            st.latex(rf"\lambda_f = \frac{{b_f}}{{2 t_f}} = \frac{{{bf_cm:.1f}}}{{{2} \cdot {tf_cm:.2f}}} = {lambda_f:.2f}")
+            st.latex(rf"\lambda_{{r}} = 0.56 \sqrt{\frac{{E}}{{F_y}}} = {lambda_rf:.2f}")
             ala_esbelta = lambda_f > lambda_rf
             if not ala_esbelta: st.success("Alas: No Esbeltas ✅")
             else: st.error("Alas: Esbeltas ❌")
             
-            # Alma
+            # Alma (Tabla B4.1.A - Caso 5)
             hw_cm = d_cm - 2*tf_cm
             lambda_w = hw_cm / tw_cm
             lambda_rw = 1.49 * np.sqrt(E_acero / Fy)
-            st.latex(rf"\lambda_w = \frac{{h_w}}{{t_w}} = {lambda_w:.2f} \quad \text{{Límite: }} {lambda_rw:.2f}")
+            st.markdown("*(Tabla B4.1.A - Caso 5)*")
+            st.latex(rf"\lambda_w = \frac{{h_w}}{{t_w}} = \frac{{{hw_cm:.1f}}}{{{tw_cm:.2f}}} = {lambda_w:.2f}")
+            st.latex(rf"\lambda_{{r}} = 1.49 \sqrt{\frac{{E}}{{F_y}}} = {lambda_rw:.2f}")
             alma_esbelta = lambda_w > lambda_rw
             if not alma_esbelta: st.success("Alma: No Esbelta ✅")
             else: st.error("Alma: Esbelta ❌")
             
-            # Clasificación Global de la Sección
             if not ala_esbelta and not alma_esbelta:
                 st.info("**Clasificación Global:** SECCIÓN NO ESBELTA *(Alas y alma no esbeltas)*")
             else:
@@ -558,13 +558,11 @@ with pestana_3:
         with col_Fe:
             st.markdown("**4.3 Tensiones Elásticas de Pandeo ($F_e$)**")
             
-            # 1. Pandeo Flexional
-            st.markdown("*a) Pandeo Flexional (Gobernante por $\\lambda_{max}$)*")
-            Fe_flex = (np.pi**2 * E_acero) / (lambda_max**2)
-            st.latex(rf"F_{{e(\text{{flex}})}} = \frac{{\pi^2 E}}{{\lambda_{{max}}^2}} = {Fe_flex:.1f} \text{{ MPa}}")
+            st.markdown("*a) Pandeo Flexional (AISC Eq. E3-4)*")
+            st.latex(r"F_{{e(\text{{flex}})}} = \frac{\pi^2 E}{(K_y L_y / r)^2}")
+            st.latex(rf"F_{{e(\text{{flex}})}} = \frac{{\pi^2 \cdot {E_acero}}}{{{lambda_max:.1f}^2}} = {Fe_flex:.1f} \text{{ MPa}}")
             
-            # 2. Pandeo Torsional
-            st.markdown("*b) Pandeo Torsional / Flexotorsional*")
+            st.markdown("*b) Pandeo Torsional / Flexotorsional (AISC Eq. E4-4)*")
             G_acero = E_acero / (2 * (1 + 0.3)) 
             Ix_cm4, Iy_cm4, J_cm4 = props_col['Ix'], props_col['Iy'], props_col['J']
             
@@ -574,21 +572,21 @@ with pestana_3:
             else:
                 h0_cm = d_cm - tf_cm
                 Cw_cm6 = (Iy_cm4 * (h0_cm)**2) / 4.0
-                st.latex(rf"C_w \approx \frac{{I_y \cdot h_0^2}}{{4}} = {Cw_cm6:.1f} \text{{ cm}}^6")
+                st.latex(rf"C_w \approx \frac{{I_y \cdot h_0^2}}{{4}} = \frac{{{Iy_cm4:.1f} \cdot {h0_cm:.1f}^2}}{{4}} = {Cw_cm6:.1f} \text{{ cm}}^6")
             
             E_cm = E_acero / 10
             G_cm = G_acero / 10
             Lz_cm = L_tramo_y
             Kz_Lz = K_X_fuera * Lz_cm
             
+            st.latex(r"F_{{e(\text{{tors}})}} = \left[ \frac{\pi^2 E C_w}{(K_z L_z)^2} + G J \right] \frac{1}{I_x + I_y}")
+            
             Fe_tors_cm = (((np.pi**2 * E_cm * Cw_cm6) / (Kz_Lz**2)) + (G_cm * J_cm4)) / (Ix_cm4 + Iy_cm4)
             Fe_tors = Fe_tors_cm * 10 
-            
-            st.latex(rf"F_{{e(\text{{tors}})}} = \left[ \frac{{\pi^2 E C_w}}{{(K_z L_z)^2}} + G J \right] \frac{{1}}{{I_x + I_y}}")
             st.latex(rf"F_{{e(\text{{tors}})}} = {Fe_tors:.1f} \text{{ MPa}}")
 
         with col_Fcr:
-            st.markdown("**4.4 Tensión Crítica ($F_{cr}$) y Resistencia ($P_d$)**")
+            st.markdown("**4.4 Tensión Crítica ($F_{cr}$) y Resistencia Nominal ($P_n$)**")
             Fe = min(Fe_flex, Fe_tors)
             relacion = Fy / Fe
             
@@ -597,17 +595,22 @@ with pestana_3:
             
             if relacion <= 2.25:
                 Fcr = (0.658 ** relacion) * Fy
-                st.caption("Pandeo Inelástico ($F_y / F_e \le 2.25$)")
-                st.latex(rf"F_{{cr}} = \left( 0.658^{{F_y/F_e}} \right) F_y = {Fcr:.1f} \text{{ MPa}}")
+                st.markdown("*(AISC Eq. E3-2: Pandeo Inelástico)*")
+                st.latex(r"F_{{cr}} = \left[ 0.658^{{F_y/F_e}} \right] F_y")
+                st.latex(rf"F_{{cr}} = \left( 0.658^{{{relacion:.2f}}} \right) \cdot {Fy} = {Fcr:.1f} \text{{ MPa}}")
             else:
                 Fcr = 0.877 * Fe
-                st.caption("Pandeo Elástico ($F_y / F_e > 2.25$)")
-                st.latex(rf"F_{{cr}} = 0.877 F_e = {Fcr:.1f} \text{{ MPa}}")
+                st.markdown("*(AISC Eq. E3-3: Pandeo Elástico)*")
+                st.latex(r"F_{{cr}} = 0.877 F_e")
+                st.latex(rf"F_{{cr}} = 0.877 \cdot {Fe:.1f} = {Fcr:.1f} \text{{ MPa}}")
 
-            st.markdown("---")
+            st.markdown("*(AISC Eq. E3-1: Resistencia Nominal)*")
             Ag = props_col['A']
             Pn_kN = (Fcr * Ag) / 10
-            Pd_kN = 0.90 * Pn_kN
-            
-            st.latex(rf"P_n = F_{{cr}} \cdot A_g = {Fcr:.1f} \cdot {Ag:.2f} / 10 = {Pn_kN:.1f} \text{{ kN}}")
-            st.success(f"### $P_d = \phi_c \cdot P_n = 0.90 \cdot {Pn_kN:.1f} = {Pd_kN:.1f} \text{{ kN}}$")
+            st.latex(rf"P_n = F_{{cr}} \cdot A_g = {Fcr:.1f} \text{{ MPa}} \cdot {Ag:.2f} \text{{ cm}}^2 / 10 = {Pn_kN:.1f} \text{{ kN}}")
+
+        st.markdown("---")
+        st.markdown("**4.5 Resistencia de Diseño ($P_d$)**")
+        Pd_kN = 0.90 * Pn_kN
+        st.latex(r"P_d = \phi_c \cdot P_n \quad (\phi_c = 0.90)")
+        st.latex(rf"P_d = 0.90 \cdot {Pn_kN:.1f} \text{{ kN}} = {Pd_kN:.1f} \text{{ kN}}")
