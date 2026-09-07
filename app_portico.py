@@ -10,17 +10,17 @@ from fractions import Fraction
 # ============================================================================
 st.set_page_config(page_title="Generador de Pórticos - UNLP", layout="wide")
 
-# CSS para agrandar las pestañas
+# CSS para agrandar las pestañas y mejorar la visibilidad
 st.markdown("""
 <style>
     .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
-        font-size: 1.25rem;
-        font-weight: 600;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #2E5A88;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Títulos más discretos
 st.header("🏗️ Generador Automático de Pórticos - UNLP")
 st.markdown("**Ing. Santiago Sciarretta**")
 st.markdown("---")
@@ -33,8 +33,7 @@ def cargar_base_perfiles():
     df = pd.read_excel("Perfiles AISC.xlsx", header=1)
     df.rename(columns={df.columns[2]: 'AISC_Manual_Label'}, inplace=True)
     df.columns = [str(col).replace('\n', '').replace(' ', '') for col in df.columns]
-    df_metrico = df.dropna(subset=['AISC_Manual_Label'])
-    return df_metrico
+    return df.dropna(subset=['AISC_Manual_Label'])
 
 df_perfiles = cargar_base_perfiles()
 
@@ -59,34 +58,35 @@ def obtener_propiedades_perfil(nombre_perfil):
             'tw': buscar_metrica('tw') / 100.0,
             'tf': buscar_metrica('tf') / 100.0,
             'Ix': buscar_metrica('ix'),
-            'Iy': buscar_metrica('iy')
+            'Iy': buscar_metrica('iy'),
+            'rX': buscar_metrica('rx'), # en cm
+            'rY': buscar_metrica('ry')  # en cm
         }
         
         if props['d'] == 0:
-            return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0}
+            return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0, 'rX': 0, 'rY': 0}
         return props
     except Exception as e:
-        return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0}
+        return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0, 'rX': 0, 'rY': 0}
 
 # ============================================================================
-# FUNCIONES DE DIBUJO (Mantenidas exactas)
+# FUNCIONES DE DIBUJO 3D (Pórtico Global)
 # ============================================================================
 def dibujar_apoyo_articulado(ax, x, y, escala=0.35):
     vertices = [[x, y], [x-escala, y-escala], [x+escala, y-escala]]
-    triangle = patches.Polygon(vertices, closed=True, edgecolor='black', facecolor='white', linewidth=1.8, zorder=5)
-    ax.add_patch(triangle)
-    base_width = escala * 2.5
-    ax.plot([x-base_width, x+base_width], [y-escala, y-escala], 'k', linewidth=1.5, zorder=4)
+    ax.add_patch(patches.Polygon(vertices, closed=True, edgecolor='black', facecolor='white', linewidth=1.8, zorder=5))
+    base = escala * 2.5
+    ax.plot([x-base, x+base], [y-escala, y-escala], 'k', linewidth=1.5, zorder=4)
     for i in range(6):
-        x_raya = x - base_width + (i * base_width * 2 / 5)
-        ax.plot([x_raya, x_raya - 0.15], [y-escala, y-escala-0.2], 'k', linewidth=1)
+        xr = x - base + (i * base * 2 / 5)
+        ax.plot([xr, xr - 0.15], [y-escala, y-escala-0.2], 'k', linewidth=1)
 
 def dibujar_apoyo_empotrado(ax, x, y, escala=0.35):
-    ancho_base = escala * 2.5
-    ax.plot([x - ancho_base, x + ancho_base], [y, y], 'k', linewidth=2.5, zorder=5)
+    base = escala * 2.5
+    ax.plot([x - base, x + base], [y, y], 'k', linewidth=2.5, zorder=5)
     for i in range(8):
-        x_raya = x - ancho_base + (i * ancho_base * 2 / 7)
-        ax.plot([x_raya, x_raya - 0.15], [y, y - 0.25], 'k', linewidth=1)
+        xr = x - base + (i * base * 2 / 7)
+        ax.plot([xr, xr - 0.15], [y, y - 0.25], 'k', linewidth=1)
 
 def dibujar_arriostramiento_y(ax, x, y):
     dx, dy = -0.45, -0.36
@@ -96,12 +96,11 @@ def dibujar_arriostramiento_y(ax, x, y):
     L_hip = np.hypot(dx, dy)
     ux, uy = dx/L_hip, dy/L_hip
     px, py = -uy, ux
-    h_tri, w_tri = 0.3, 0.4
-    mx, my = xf + ux * h_tri, yf + uy * h_tri
-    p2x, p2y = mx + px * (w_tri / 2), my + py * (w_tri / 2)
-    p3x, p3y = mx - px * (w_tri / 2), my - py * (w_tri / 2)
-    tri = patches.Polygon([[xf, yf], [p2x, p2y], [p3x, p3y]], closed=True, edgecolor='#0066CC', facecolor='white', linewidth=1.5, zorder=3)
-    ax.add_patch(tri)
+    h, w = 0.3, 0.4
+    mx, my = xf + ux * h, yf + uy * h
+    p2x, p2y = mx + px * (w / 2), my + py * (w / 2)
+    p3x, p3y = mx - px * (w / 2), my - py * (w / 2)
+    ax.add_patch(patches.Polygon([[xf, yf], [p2x, p2y], [p3x, p3y]], closed=True, edgecolor='#0066CC', facecolor='white', linewidth=1.5, zorder=3))
     ax.plot([p2x, p3x], [p2y, p3y], color='#0066CC', linewidth=1.5, zorder=3)
 
 def dibujar_seccion_ipe(ax, x, y, orientacion='FUERTE', escala=0.45):
@@ -116,11 +115,11 @@ def dibujar_seccion_ipe(ax, x, y, orientacion='FUERTE', escala=0.45):
         ax.add_patch(patches.Rectangle((x - w/2, y + h/2 - ta), w, ta, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - w/2, y - h/2), w, ta, facecolor='gray', edgecolor='black', alpha=0.7))
     
-    color_x, color_y = '#CC0000', '#008000'
-    ax.annotate('', xy=(x + (w/2 + 0.3), y), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=color_x, lw=1.2))
-    ax.text(x + (w/2 + 0.4), y - 0.1, 'x', fontsize=9, color=color_x, fontweight='bold')
-    ax.annotate('', xy=(x, y + (h/2 + 0.3)), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=color_y, lw=1.2))
-    ax.text(x - 0.15, y + (h/2 + 0.4), 'y', fontsize=9, color=color_y, fontweight='bold')
+    cx, cy = '#CC0000', '#008000'
+    ax.annotate('', xy=(x + (w/2 + 0.3), y), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=cx, lw=1.2))
+    ax.text(x + (w/2 + 0.4), y - 0.1, 'x', fontsize=9, color=cx, fontweight='bold')
+    ax.annotate('', xy=(x, y + (h/2 + 0.3)), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=cy, lw=1.2))
+    ax.text(x - 0.15, y + (h/2 + 0.4), 'y', fontsize=9, color=cy, fontweight='bold')
 
 def dibujar_seccion_viga(ax, x, y, orientacion='FUERTE', escala=0.45):
     w, h = (1.0 * escala) * 1.5, (0.65 * escala) * 2.0
@@ -134,14 +133,13 @@ def dibujar_seccion_viga(ax, x, y, orientacion='FUERTE', escala=0.45):
         ax.add_patch(patches.Rectangle((x - h/2, y - w/2), ta, w, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x + h/2 - ta, y - w/2), ta, w, facecolor='gray', edgecolor='black', alpha=0.7))
         
-    color_y, color_z = '#008000', '#0066CC'
+    cy, cz = '#008000', '#0066CC'
     dim_y = w/2 if orientacion == 'FUERTE' else h/2
     dim_z = h/2 if orientacion == 'FUERTE' else w/2
-    
-    ax.annotate('', xy=(x + dim_y + 0.3, y), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=color_y, lw=1.2))
-    ax.text(x + dim_y + 0.4, y - 0.1, 'y', fontsize=9, color=color_y, fontweight='bold')
-    ax.annotate('', xy=(x, y + dim_z + 0.3), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=color_z, lw=1.2))
-    ax.text(x - 0.15, y + dim_z + 0.4, 'z', fontsize=9, color=color_z, fontweight='bold')
+    ax.annotate('', xy=(x + dim_y + 0.3, y), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=cy, lw=1.2))
+    ax.text(x + dim_y + 0.4, y - 0.1, 'y', fontsize=9, color=cy, fontweight='bold')
+    ax.annotate('', xy=(x, y + dim_z + 0.3), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=cz, lw=1.2))
+    ax.text(x - 0.15, y + dim_z + 0.4, 'z', fontsize=9, color=cz, fontweight='bold')
 
 def dibujar_cotas(ax, x1, y1, x2, y2, texto, offset=0.8, orientacion='horizontal'):
     if orientacion == 'horizontal':
@@ -152,6 +150,47 @@ def dibujar_cotas(ax, x1, y1, x2, y2, texto, offset=0.8, orientacion='horizontal
         ax.text(x1 - offset - 0.3, (y1 + y2) / 2, texto, ha='right', va='center', fontsize=10, fontweight='bold', rotation=90)
 
 # ============================================================================
+# FUNCIONES DE DIBUJO 2D (Cortes Dinámicos Didácticos)
+# ============================================================================
+def graficar_corte_cinematico(orientacion, eje_rotacion):
+    """Dibuja la vista superior (Plano X-Y) con la sección y el vector momento"""
+    fig, ax = plt.subplots(figsize=(3, 3), dpi=100)
+    ax.set_aspect('equal')
+    ax.axis('off')
+    ax.set_xlim(-1.2, 1.2); ax.set_ylim(-1.2, 1.2)
+
+    # Ejes Globales
+    ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
+    ax.axvline(0, color='gray', linestyle='--', linewidth=0.8)
+    ax.text(1.05, 0.05, 'X', color='gray', fontsize=10, fontweight='bold')
+    ax.text(0.05, 1.05, 'Y', color='gray', fontsize=10, fontweight='bold')
+
+    # Perfil Genérico
+    w, h, ta, tm = 0.8, 1.2, 0.15, 0.08
+    if orientacion == 'FUERTE':
+        # Eje fuerte en Y (Alma en X, Alas en Y)
+        ax.add_patch(patches.Rectangle((-w/2, -tm/2), w, tm, facecolor='#A0A0A0', edgecolor='black'))
+        ax.add_patch(patches.Rectangle((-w/2, -h/2), ta, h, facecolor='#606060', edgecolor='black'))
+        ax.add_patch(patches.Rectangle((w/2-ta, -h/2), ta, h, facecolor='#606060', edgecolor='black'))
+    else:
+        # Eje débil en Y (Alma en Y, Alas en X)
+        ax.add_patch(patches.Rectangle((-tm/2, -h/2), tm, h, facecolor='#A0A0A0', edgecolor='black'))
+        ax.add_patch(patches.Rectangle((-w/2, h/2-ta), w, ta, facecolor='#606060', edgecolor='black'))
+        ax.add_patch(patches.Rectangle((-w/2, -h/2), w, ta, facecolor='#606060', edgecolor='black'))
+
+    # Vector Momento Flector
+    if eje_rotacion == 'Y':
+        kw = dict(arrowstyle="Simple, tail_width=2, head_width=8, head_length=10", color="#CC0000")
+        ax.add_patch(patches.FancyArrowPatch((0.4, -0.7), (0.4, 0.7), connectionstyle="arc3,rad=.4", **kw))
+        ax.text(0.65, 0, '$M_Y$', color='#CC0000', fontsize=14, fontweight='bold', va='center')
+    else:
+        kw = dict(arrowstyle="Simple, tail_width=2, head_width=8, head_length=10", color="#0066CC")
+        ax.add_patch(patches.FancyArrowPatch((-0.7, 0.4), (0.7, 0.4), connectionstyle="arc3,rad=-.4", **kw))
+        ax.text(0, 0.65, '$M_X$', color='#0066CC', fontsize=14, fontweight='bold', ha='center')
+
+    return fig
+
+# ============================================================================
 # INTERFAZ SIDEBAR
 # ============================================================================
 st.sidebar.header("⚙️ Parámetros")
@@ -160,8 +199,7 @@ st.sidebar.markdown("### 1) Definición geométrica")
 H = st.sidebar.number_input("Altura (H) [m]", value=5.5)
 L = st.sidebar.number_input("Longitud (L) [m]", value=7.0)
 
-SISTEMA = st.sidebar.radio("Sistema Lateral", 
-                           ["No arriostrado (Translacional)", "Arriostrado (Intranslacional)"])
+SISTEMA = st.sidebar.radio("Sistema Lateral", ["No arriostrado (Translacional)", "Arriostrado (Intranslacional)"])
 
 todas_las_series = df_perfiles.iloc[:, 0].dropna().unique().tolist()
 series_permitidas = ["W", "IPE", "IPN", "HEB", "HEA", "UPN"]
@@ -190,108 +228,95 @@ T_APOYO = st.sidebar.selectbox("Apoyo Inferior", ["Empotrado", "Articulado"])
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 2) Criterios de Cálculo")
-CRITERIO = st.sidebar.radio("Condiciones de Borde", ["Sugeridos (AISC/CIRSOC)", "Teóricos Ideales"], 
-                            help="Define si se usan los valores puros de la estática o los recomendados por norma para el diseño.")
+CRITERIO = st.sidebar.radio("Condiciones de Borde", ["Sugeridos (AISC/CIRSOC)", "Teóricos Ideales"])
 
 # ============================================================================
-# MOTOR CENTRAL
+# MOTOR CENTRAL DE CÁLCULO Y DIBUJO GLOBAL
 # ============================================================================
 def generar_datos_y_grafico():
     props_col = obtener_propiedades_perfil(perfil_col)
     props_viga = obtener_propiedades_perfil(perfil_viga)
     
-    D_COL_R, D_VIGA_R = props_col['d'], props_viga['d']
-    esc = 0.8 / 0.40
-    D_C, D_V = D_COL_R * esc, D_VIGA_R * esc
-    E_ALA_C, E_ALA_V = max(props_col['tf'] * esc, 0.06), max(props_viga['tf'] * esc, 0.06)
+    D_C = props_col['d'] * (0.8/0.40)
+    D_V = props_viga['d'] * (0.8/0.40)
+    E_ALA_C = max(props_col['tf'] * (0.8/0.40), 0.06)
+    E_ALA_V = max(props_viga['tf'] * (0.8/0.40), 0.06)
     
-    # --- CÁLCULO G Y K ---
-    I_c = props_col['Ix'] if o_col == 'FUERTE' else props_col['Iy']
-    I_v = props_viga['Ix'] if o_viga == 'FUERTE' else props_viga['Iy']
+    # --- CÁLCULOS ESTÁTICOS ---
+    I_c_plano = props_col['Ix'] if o_col == 'FUERTE' else props_col['Iy']
+    I_v_plano = props_viga['Ix'] if o_viga == 'FUERTE' else props_viga['Iy']
     
-    G_sup = None
-    if I_c > 0 and I_v > 0:
-        rigidez_columna = I_c / (H * 100) 
-        rigidez_viga = I_v / (L * 100)    
-        G_sup = rigidez_columna / rigidez_viga
+    # Radios de giro
+    r_plano = props_col['rX'] if o_col == 'FUERTE' else props_col['rY']
+    r_fuera = props_col['rY'] if o_col == 'FUERTE' else props_col['rX']
+    
+    G_Y_sup = None
+    if I_c_plano > 0 and I_v_plano > 0:
+        G_Y_sup = (I_c_plano / (H * 100)) / (I_v_plano / (L * 100))
         
-    # Asignación de G_inf según Criterio
     if T_APOYO == "Empotrado":
-        G_inf = 0.0 if CRITERIO == "Teóricos Ideales" else 1.0
+        G_Y_inf = 0.0 if CRITERIO == "Teóricos Ideales" else 1.0
+        K_X_fuera = 0.70 if CRITERIO == "Teóricos Ideales" else 0.80
     else:
-        G_inf = 1000.0 if CRITERIO == "Teóricos Ideales" else 10.0
-
-    # Asignación K Fuera del Plano (Tramo inferior)
-    if T_APOYO == "Empotrado":
-        Ky = 0.70 if CRITERIO == "Teóricos Ideales" else 0.80
-    else:
-        Ky = 1.00 # Articulado-Articulado es 1.0 en ambos criterios
+        G_Y_inf = 1000.0 if CRITERIO == "Teóricos Ideales" else 10.0
+        K_X_fuera = 1.00 
 
     # --- DIBUJO ---
-    lw_ext, lw_int = 1.5, 1.0
     fig, ax = plt.subplots(figsize=(12, 9), dpi=300) 
     ax.set_aspect('equal')
     ax.axis('off')
     ax.set_xlim(-4.01, L + 5); ax.set_ylim(-4.01, H + 2)
 
-    color_x, color_y, color_z = '#CC0000', '#008000', '#0066CC'
+    cx, cy, cz = '#CC0000', '#008000', '#0066CC'
     xo, yo = -3.5, 0
-    ax.annotate('', xy=(xo+1, yo), xytext=(xo, yo), arrowprops=dict(arrowstyle='->', lw=2, color=color_x))
-    ax.text(xo+1.2, yo, 'X', color=color_x, fontweight='bold', va='center')
-    ax.annotate('', xy=(xo, yo+1), xytext=(xo, yo), arrowprops=dict(arrowstyle='->', lw=2, color=color_z))
-    ax.text(xo, yo+1.3, 'Z', color=color_z, fontweight='bold', ha='center')
-    dx_y, dy_y = 0.5, 0.4
-    ax.annotate('', xy=(xo+dx_y, yo+dy_y), xytext=(xo, yo), arrowprops=dict(arrowstyle='->', lw=2, color=color_y))
-    ax.text(xo+dx_y+0.2, yo+dy_y+0.1, 'Y', color=color_y, fontweight='bold', ha='left')
+    ax.annotate('', xy=(xo+1, yo), xytext=(xo, yo), arrowprops=dict(arrowstyle='->', lw=2, color=cx))
+    ax.text(xo+1.2, yo, 'X', color=cx, fontweight='bold', va='center')
+    ax.annotate('', xy=(xo, yo+1), xytext=(xo, yo), arrowprops=dict(arrowstyle='->', lw=2, color=cz))
+    ax.text(xo, yo+1.3, 'Z', color=cz, fontweight='bold', ha='center')
+    ax.annotate('', xy=(xo+0.5, yo+0.4), xytext=(xo, yo), arrowprops=dict(arrowstyle='->', lw=2, color=cy))
+    ax.text(xo+0.7, yo+0.5, 'Y', color=cy, fontweight='bold', ha='left')
     ax.plot([xo], [yo], 'o', color='black', markersize=4)
 
     vs, vi = H + D_V/2, H - D_V/2
-    GROSOR_EJE, GROSOR_ALMA_OCULTA, COLOR_ALMA_GRIS = 0.8, 0.6, '#222222' 
-    
     for x in [0, L]:
-        ax.plot([x-D_C/2, x-D_C/2], [0, vs], 'k', lw=lw_ext, zorder=1)
-        ax.plot([x+D_C/2, x+D_C/2], [0, vs], 'k', lw=lw_ext, zorder=1)
-        ax.plot([x-D_C/2, x+D_C/2], [0, 0], 'k', lw=lw_ext, zorder=1)
-        ax.plot([x-D_C/2, x+D_C/2], [vs, vs], 'k', lw=lw_ext, zorder=1)
-        ax.plot([x, x], [0, H], color='black', linestyle='-.', lw=GROSOR_EJE, zorder=4, snap=True)
+        ax.plot([x-D_C/2, x-D_C/2], [0, vs], 'k', lw=1.5, zorder=1)
+        ax.plot([x+D_C/2, x+D_C/2], [0, vs], 'k', lw=1.5, zorder=1)
+        ax.plot([x-D_C/2, x+D_C/2], [0, 0], 'k', lw=1.5, zorder=1)
+        ax.plot([x-D_C/2, x+D_C/2], [vs, vs], 'k', lw=1.5, zorder=1)
+        ax.plot([x, x], [0, H], color='black', linestyle='-.', lw=0.8, zorder=4, snap=True)
         
         if o_col == 'FUERTE':
-            ax.plot([x-D_C/2+E_ALA_C, x-D_C/2+E_ALA_C], [0, vs], 'k', lw=lw_int, zorder=2)
-            ax.plot([x+D_C/2-E_ALA_C, x+D_C/2-E_ALA_C], [0, vs], 'k', lw=lw_int, zorder=2)
+            ax.plot([x-D_C/2+E_ALA_C, x-D_C/2+E_ALA_C], [0, vs], 'k', lw=1.0, zorder=2)
+            ax.plot([x+D_C/2-E_ALA_C, x+D_C/2-E_ALA_C], [0, vs], 'k', lw=1.0, zorder=2)
         else:
-            off = max(props_col['tw'] * esc, 0.04) * 2 
-            ax.plot([x - off/2, x - off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
-            ax.plot([x + off/2, x + off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
+            off = max(props_col['tw'] * (0.8/0.40), 0.04) * 2 
+            ax.plot([x - off/2, x - off/2], [0, vs], color='#222222', linestyle='--', lw=0.6, zorder=2)
+            ax.plot([x + off/2, x + off/2], [0, vs], color='#222222', linestyle='--', lw=0.6, zorder=2)
 
         if T_APOYO == "Empotrado": dibujar_apoyo_empotrado(ax, x, 0)
         else: dibujar_apoyo_articulado(ax, x, 0)
-        
         dibujar_seccion_ipe(ax, x, -1.5, orientacion=o_col)
 
-    ax.plot([0, L], [H, H], color='black', linestyle='-.', lw=GROSOR_EJE, zorder=4, snap=True)
+    ax.plot([0, L], [H, H], color='black', linestyle='-.', lw=0.8, zorder=4, snap=True)
     xfi, xfd = D_C/2, L - D_C/2
-    ax.plot([xfi, xfd], [vi, vi], 'k', lw=lw_ext, zorder=1)
-    ax.plot([xfi, xfd], [vs, vs], 'k', lw=lw_ext, zorder=1)
+    ax.plot([xfi, xfd], [vi, vi], 'k', lw=1.5, zorder=1)
+    ax.plot([xfi, xfd], [vs, vs], 'k', lw=1.5, zorder=1)
     
     if o_viga == 'FUERTE':
-        ax.plot([xfi, xfd], [vi+E_ALA_V, vi+E_ALA_V], 'k', lw=lw_int, zorder=2)
-        ax.plot([xfi, xfd], [vs-E_ALA_V, vs-E_ALA_V], 'k', lw=lw_int, zorder=2)
+        ax.plot([xfi, xfd], [vi+E_ALA_V, vi+E_ALA_V], 'k', lw=1.0, zorder=2)
+        ax.plot([xfi, xfd], [vs-E_ALA_V, vs-E_ALA_V], 'k', lw=1.0, zorder=2)
     else:
-        off_v = max(props_viga['tw'] * esc, 0.04) * 2
-        ax.plot([xfi, xfd], [H - off_v/2, H - off_v/2], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
-        ax.plot([xfi, xfd], [H + off_v/2, H + off_v/2], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
+        off_v = max(props_viga['tw'] * (0.8/0.40), 0.04) * 2
+        ax.plot([xfi, xfd], [H - off_v/2, H - off_v/2], color='#222222', linestyle='--', lw=0.6, zorder=2)
+        ax.plot([xfi, xfd], [H + off_v/2, H + off_v/2], color='#222222', linestyle='--', lw=0.6, zorder=2)
 
-    x_viga_sec = L + 1.8
-    ax.plot([xfd, x_viga_sec], [H, H], 'k-.', lw=0.8, alpha=0.4) 
-    dibujar_seccion_viga(ax, x_viga_sec, H, orientacion=o_viga)
+    dibujar_seccion_viga(ax, L + 1.8, H, orientacion=o_viga)
 
     if "Arriostrado" in SISTEMA:
-        color_x = '#2E5A88' 
-        ax.plot([0, L], [0, H], color=color_x, linestyle='--', lw=1.2, zorder=0, alpha=0.8)
-        ax.plot([L, 0], [0, H], color=color_x, linestyle='--', lw=1.2, zorder=0, alpha=0.8)
+        ax.plot([0, L], [0, H], color='#2E5A88', linestyle='--', lw=1.2, zorder=0, alpha=0.8)
+        ax.plot([L, 0], [0, H], color='#2E5A88', linestyle='--', lw=1.2, zorder=0, alpha=0.8)
 
-    pos = []
-    if NUDOS: pos.append(H)
+    pos = [H] if NUDOS else []
     dz = FRAC * H
     for i in range(1, int(CANT)+1):
         if i*dz < H-0.1: pos.append(i*dz)
@@ -305,104 +330,94 @@ def generar_datos_y_grafico():
     for yp in pos:
         dist = yp - y_p
         if dist > 0.1:
-            y_mid = (y_p + yp) / 2
             ax.annotate('', xy=(xc, yp), xytext=(xc, y_p), arrowprops=dict(arrowstyle='<->', lw=0.8))
-            
-            if abs(dist - dz) < 0.05:
-                texto_h = ""
-                if abs(FRAC - 1/2) < 0.001: texto_h = "H/2"
-                elif abs(FRAC - 1/3) < 0.001: texto_h = "H/3"
-                elif abs(FRAC - 1/4) < 0.001: texto_h = "H/4"
-                elif abs(FRAC - 1/5) < 0.001: texto_h = "H/5"
-                else: texto_h = f"{FRAC:.2f} H"
-                ax.text(xc - 0.1, y_mid, texto_h, rotation=90, va='center', ha='right', fontsize=9, color='#0066CC', fontweight='bold')
-                ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=9)
-            else:
-                ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=9)
+            texto = f"{dist:.2f}m" if abs(dist - dz) >= 0.05 else (f"{FRAC:.2f} H" if abs(FRAC - 1/2) >= 0.001 and abs(FRAC - 1/3) >= 0.001 and abs(FRAC - 1/4) >= 0.001 and abs(FRAC - 1/5) >= 0.001 else f"H/{int(1/FRAC)}")
+            ax.text(xc + 0.1, (y_p + yp) / 2, texto, rotation=90, va='center', ha='left', fontsize=9)
         y_p = yp
 
     dibujar_cotas(ax, 0, 0, 0, H, f'H={H:.2f}m', 1.2, 'vertical')
     dibujar_cotas(ax, 0, H, L, H, f'L={L:.2f}m', 1.0, 'horizontal')
 
-    texto_nudos = "Sí" if NUDOS else "No"
-    tipo_portico_txt = "Arriostrado" if "Arriostrado" in SISTEMA else "No arriostrado"
-    info = (f"TP Nº1 - ESTRUCTURAS METÁLICAS\nTipo de Pórtico: {tipo_portico_txt}\nCol: {perfil_col} ({o_col})\n"
-            f"Viga: {perfil_viga} ({o_viga})\nArriostramientos nudos sup.: {texto_nudos}\nArriostramientos intermedios: {int(CANT)}")
+    info = f"TP Nº1 - UNLP\nCol: {perfil_col} ({o_col})\nViga: {perfil_viga} ({o_viga})\nSistema: {SISTEMA.split(' ')[0]}"
     ax.text(L+1.5, 0, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
    
-    return fig, G_sup, G_inf, I_c, I_v, Ky
+    return fig, G_Y_sup, G_Y_inf, I_c_plano, I_v_plano, r_plano, r_fuera, K_X_fuera
 
 # ============================================================================
 # RENDERIZADO DE PESTAÑAS (TABS)
 # ============================================================================
 pestana_1, pestana_2 = st.tabs(["📐 Definición Geométrica", "🧮 Cálculo de Esbelteces"])
 
-fig_portico, G_sup, G_inf, I_c, I_v, Ky = generar_datos_y_grafico()
+fig_portico, G_Y_sup, G_Y_inf, I_c_plano, I_v_plano, r_plano, r_fuera, K_X_fuera = generar_datos_y_grafico()
 
 with pestana_1:
     st.pyplot(fig_portico, use_container_width=True)
 
 with pestana_2:
-    if G_sup is None:
-        st.warning("⚠️ Faltan datos de inercia en el catálogo para procesar los cálculos.")
+    if G_Y_sup is None or r_plano == 0:
+        st.warning("⚠️ Faltan datos mecánicos en el catálogo para procesar los cálculos.")
     else:
-        st.subheader("1. Cálculo de Rigidez Relativa en los Nudos ($G$)")
-        
-            
-        col_calc_G, col_res_G = st.columns([1.2, 1])
-        
-        with col_calc_G:
-            st.markdown("**Planteo Nudo Superior ($G_A$):**")
-            # 1. Fórmula General
-            st.latex(r"G = \frac{\sum (I_{col} / L_{col})}{\sum (I_{viga} / L_{viga})}")
-            
-            # 2. Fórmula Adaptada a la Selección
-            eje_c = "x" if o_col == "FUERTE" else "y"
-            eje_v = "x" if o_viga == "FUERTE" else "y"
-            st.latex(rf"G_A = \frac{{ I_{{ {eje_c}(col) }} / H }}{{ I_{{ {eje_v}(viga) }} / L }}")
-            
-            # 3. Reemplazo Numérico
-            st.latex(rf"G_A = \frac{{{I_c:.1f} \text{{ cm}}^4 / {H*100:.0f} \text{{ cm}}}}{{{I_v:.1f} \text{{ cm}}^4 / {L*100:.0f} \text{{ cm}}}}")
-            
-        with col_res_G:
-            st.success(f"**Resultado $G_A$ (Nudo Superior)**\n### $G_A = {G_sup:.3f}$")
-            
-            st.markdown("---")
-            st.info(f"**Resultado $G_B$ (Nudo Inferior)**\n### $G_B = {G_inf:.2f}$")
-            
-            if G_inf >= 1000:
-                st.caption("*(Nota: Para el apoyo articulado teórico se adopta un valor numéricamente alto, $G_B = 1000$, para representar la rigidez nula).*")
+        # Nomenclatura local para impresión
+        lbl_c_plano = "fuerte" if o_col == "FUERTE" else "débil"
+        lbl_v_plano = "fuerte" if o_viga == "FUERTE" else "débil"
+        lbl_c_fuera = "débil" if o_col == "FUERTE" else "fuerte"
 
+        # --- SECCIÓN 1: PLANO DEL PÓRTICO ---
+        st.header("1. Esbeltez en el plano del pórtico (Rotación s/ Eje Y Global)")
         st.markdown("---")
-        st.subheader("2. Factor de Longitud Efectiva ($K$)")
         
-        col_Kx, col_Ky = st.columns(2)
+        col_img1, col_calc1 = st.columns([1, 2.5])
         
-        with col_Kx:
-            st.markdown("**Plano del Pórtico ($K_x$)**")
-            st.markdown(f"Criterio: *Expresiones aproximadas de Dumonteil (AISC/CIRSOC)*")
+        with col_img1:
+            st.markdown("**Sección Columna y Momento Flector ($M_Y$)**")
+            fig_corte_y = graficar_corte_cinematico(o_col, 'Y')
+            st.pyplot(fig_corte_y, use_container_width=True)
             
-            if "Arriostrado" in SISTEMA:
-                # FÓRMULA INTRANSLACIONAL
-                Kx = (3*G_sup*G_inf + 1.4*(G_sup+G_inf) + 0.64) / (3*G_sup*G_inf + 2.0*(G_sup+G_inf) + 1.28)
-                st.latex(r"K_x = \frac{3 G_A G_B + 1.4(G_A + G_B) + 0.64}{3 G_A G_B + 2.0(G_A + G_B) + 1.28}")
-                st.latex(rf"K_x = \frac{{3({G_sup:.2f})({G_inf:.2f}) + 1.4({G_sup:.2f} + {G_inf:.2f}) + 0.64}}{{3({G_sup:.2f})({G_inf:.2f}) + 2.0({G_sup:.2f} + {G_inf:.2f}) + 1.28}}")
-            else:
-                # FÓRMULA TRANSLACIONAL
-                Kx = np.sqrt((1.6*G_sup*G_inf + 4.0*(G_sup+G_inf) + 7.5) / (G_sup + G_inf + 7.5))
-                st.latex(r"K_x = \sqrt{\frac{1.6 G_A G_B + 4.0(G_A + G_B) + 7.5}{G_A + G_B + 7.5}}")
-                st.latex(rf"K_x = \sqrt{{\frac{{1.6({G_sup:.2f})({G_inf:.2f}) + 4.0({G_sup:.2f} + {G_inf:.2f}) + 7.5}}{{{G_sup:.2f} + {G_inf:.2f} + 7.5}}}}")
-            
-            st.success(f"### $K_x = {Kx:.3f}$")
+        with col_calc1:
+            st.subheader("1.1 Cálculo de rigideces relativas ($G_Y$)")
+            st.latex(r"G_Y = \frac{\sum (I_{col} / L_{col})}{\sum (I_{viga} / L_{viga})}")
+            st.latex(rf"G_{{Y(sup)}} = \frac{{ I_{{\text{{{lbl_c_plano}(col)}}}} / H }}{{ I_{{\text{{{lbl_v_plano}(viga)}}}} / L }}")
+            st.latex(rf"G_{{Y(sup)}} = \frac{{{I_c_plano:.1f} \text{{ cm}}^4 / {H*100:.0f} \text{{ cm}}}}{{{I_v_plano:.1f} \text{{ cm}}^4 / {L*100:.0f} \text{{ cm}}}} = {G_Y_sup:.3f}")
+            st.info(f"**$G_{{Y(inf)}}$ (Apoyo Inferior) = {G_Y_inf:.2f}**")
 
-        with col_Ky:
-            st.markdown("**Fuera del Plano ($K_y$)**")
-            st.markdown("Considerando el tramo inferior de la columna (desde el apoyo hasta el primer nudo arriostrado):")
-            
-            if T_APOYO == "Empotrado":
-                texto_apoyos = "Empotrado (base) - Articulado (riostra/viga)"
+            st.subheader("1.2 Factor de longitud efectiva ($K_Y$)")
+            if "Arriostrado" in SISTEMA:
+                K_Y = (3*G_Y_sup*G_Y_inf + 1.4*(G_Y_sup+G_Y_inf) + 0.64) / (3*G_Y_sup*G_Y_inf + 2.0*(G_Y_sup+G_Y_inf) + 1.28)
+                st.latex(r"K_Y = \frac{3 G_A G_B + 1.4(G_A + G_B) + 0.64}{3 G_A G_B + 2.0(G_A + G_B) + 1.28}")
             else:
-                texto_apoyos = "Articulado (base) - Articulado (riostra/viga)"
-                
-            st.info(f"**Condición de Borde Evaluada:**\n{texto_apoyos}")
-            st.success(f"### $K_y = {Ky:.2f}$")
+                K_Y = np.sqrt((1.6*G_Y_sup*G_Y_inf + 4.0*(G_Y_sup+G_Y_inf) + 7.5) / (G_Y_sup + G_Y_inf + 7.5))
+                st.latex(r"K_Y = \sqrt{\frac{1.6 G_A G_B + 4.0(G_A + G_B) + 7.5}{G_A + G_B + 7.5}}")
+            st.success(f"### $K_Y = {K_Y:.3f}$")
+
+            st.subheader("1.3 Verificación de Esbeltez ($\lambda_Y$)")
+            lambda_Y = (K_Y * (H*100)) / r_plano
+            st.latex(rf"\lambda_Y = \frac{{K_Y \cdot L_{{col}}}}{{r_{{\text{{{lbl_c_plano}(col)}}}}}}")
+            st.latex(rf"\lambda_Y = \frac{{{K_Y:.2f} \cdot {H*100:.0f} \text{{ cm}}}}{{{r_plano:.2f} \text{{ cm}}}} = {lambda_Y:.1f}")
+            if lambda_Y <= 200: st.success("✅ Cumple límite de compresión ($\lambda \le 200$)")
+            else: st.error("❌ Supera límite de compresión ($\lambda > 200$)")
+
+        # --- SECCIÓN 2: FUERA DEL PLANO ---
+        st.write("")
+        st.header("2. Esbeltez perpendicular al plano (Rotación s/ Eje X Global)")
+        st.markdown("---")
+        
+        col_img2, col_calc2 = st.columns([1, 2.5])
+        
+        with col_img2:
+            st.markdown("**Sección Columna y Momento Flector ($M_X$)**")
+            fig_corte_x = graficar_corte_cinematico(o_col, 'X')
+            st.pyplot(fig_corte_x, use_container_width=True)
+            
+        with col_calc2:
+            st.subheader("2.1 Factor de longitud efectiva ($K_X$)")
+            txt_apoyo = "Empotrado (base) - Articulado (riostra/viga)" if T_APOYO == "Empotrado" else "Articulado (base) - Articulado (riostra/viga)"
+            st.info(f"**Tramo Evaluado:** Desde apoyo hasta el primer nudo arriostrado.\n\n**Condición:** {txt_apoyo}")
+            st.success(f"### $K_X = {K_X_fuera:.2f}$")
+
+            st.subheader("2.2 Verificación de Esbeltez ($\lambda_X$)")
+            L_tramo_y = (FRAC * H) * 100
+            lambda_X = (K_X_fuera * L_tramo_y) / r_fuera
+            st.latex(rf"\lambda_X = \frac{{K_X \cdot L_{{tramo}}}}{{r_{{\text{{{lbl_c_fuera}(col)}}}}}}")
+            st.latex(rf"\lambda_X = \frac{{{K_X_fuera:.2f} \cdot {L_tramo_y:.0f} \text{{ cm}}}}{{{r_fuera:.2f} \text{{ cm}}}} = {lambda_X:.1f}")
+            if lambda_X <= 200: st.success("✅ Cumple límite de compresión ($\lambda \le 200$)")
+            else: st.error("❌ Supera límite de compresión ($\lambda > 200$)")
