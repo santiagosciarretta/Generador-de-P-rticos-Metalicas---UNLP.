@@ -3,14 +3,13 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 import pandas as pd
-from fractions import Fraction
 
 # ============================================================================
 # CONFIGURACIÓN Y ESTÉTICA (CSS)
 # ============================================================================
 st.set_page_config(page_title="Generador de Pórticos - UNLP", layout="wide")
 
-# CSS Súper Agresivo (Multiversión) para forzar el tamaño de las pestañas
+# CSS Súper Agresivo para forzar el tamaño de las pestañas
 st.markdown("""
 <style>
     div[data-testid="stTabs"] button p,
@@ -66,14 +65,14 @@ def obtener_propiedades_perfil(nombre_perfil):
             'tf': buscar_metrica('tf') / 100.0,
             'Ix': buscar_metrica('ix'),
             'Iy': buscar_metrica('iy'),
-            'rX': buscar_metrica('rx'), # en cm
-            'rY': buscar_metrica('ry')  # en cm
+            'rX': buscar_metrica('rx'), 
+            'rY': buscar_metrica('ry')  
         }
         
         if props['d'] == 0:
             return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0, 'rX': 0, 'rY': 0}
         return props
-    except Exception as e:
+    except Exception:
         return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0, 'rX': 0, 'rY': 0}
 
 # ============================================================================
@@ -157,55 +156,63 @@ def dibujar_cotas(ax, x1, y1, x2, y2, texto, offset=0.8, orientacion='horizontal
         ax.text(x1 - offset - 0.3, (y1 + y2) / 2, texto, ha='right', va='center', fontsize=10, fontweight='bold', rotation=90)
 
 # ============================================================================
-# FUNCIONES DE DIBUJO 2D (Cortes Dinámicos Didácticos - ACTUALIZADO)
+# FUNCIONES DE DIBUJO 2D (Cortes Didácticos a Escala Real)
 # ============================================================================
-def graficar_corte_cinematico(orientacion, eje_rotacion):
-    """Dibuja la vista superior, perfil proporcionado y vector momento doble punta"""
+def graficar_corte_cinematico_real(orientacion, eje_rotacion, d, bf, tw, tf):
+    """Dibuja el perfil con sus medidas reales leídas del Excel"""
     fig, ax = plt.subplots(figsize=(3, 3), dpi=100)
     ax.set_aspect('equal')
     ax.axis('off')
-    ax.set_xlim(-1.4, 1.4); ax.set_ylim(-1.4, 1.4)
+    
+    # Calcular límites dinámicos para que cualquier perfil entre perfecto en el cuadro
+    limite = max(d, bf) * 0.75 
+    ax.set_xlim(-limite, limite)
+    ax.set_ylim(-limite, limite)
 
     # Ejes Globales (Cruz central punteada)
     ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
     ax.axvline(0, color='gray', linestyle='--', linewidth=0.8)
-    ax.text(1.25, 0.05, 'X', color='gray', fontsize=10, fontweight='bold')
-    ax.text(0.05, 1.25, 'Y', color='gray', fontsize=10, fontweight='bold')
+    ax.text(limite*0.85, 0.05*limite, 'X', color='gray', fontsize=10, fontweight='bold')
+    ax.text(0.05*limite, limite*0.85, 'Y', color='gray', fontsize=10, fontweight='bold')
 
-    # Geometría del Perfil (MUCHO MÁS ESTILIZADO)
-    w, h, ta, tm = 0.5, 1.0, 0.08, 0.04 
-    
     if orientacion == 'FUERTE':
-        ax.add_patch(patches.Rectangle((-w/2, -tm/2), w, tm, facecolor='#A0A0A0', edgecolor='black'))
-        ax.add_patch(patches.Rectangle((-w/2, -h/2), ta, h, facecolor='#606060', edgecolor='black'))
-        ax.add_patch(patches.Rectangle((w/2-ta, -h/2), ta, h, facecolor='#606060', edgecolor='black'))
+        w, h = bf, d
+        # Alma vertical
+        ax.add_patch(patches.Rectangle((-tw/2, -h/2 + tf), tw, h - 2*tf, facecolor='#A0A0A0', edgecolor='black'))
+        # Alas horizontales
+        ax.add_patch(patches.Rectangle((-w/2, h/2 - tf), w, tf, facecolor='#606060', edgecolor='black'))
+        ax.add_patch(patches.Rectangle((-w/2, -h/2), w, tf, facecolor='#606060', edgecolor='black'))
         # Textos de ejes locales limpios
-        ax.text(0.1, -h/2 - 0.2, 'y', color='#606060', fontsize=11, fontstyle='italic')
-        ax.text(-w/2 - 0.25, 0.1, 'x', color='#606060', fontsize=11, fontstyle='italic')
+        ax.text(tw/2 + limite*0.05, -h/2 - limite*0.15, 'y', color='#606060', fontsize=11, fontstyle='italic')
+        ax.text(-w/2 - limite*0.15, tw/2 + limite*0.05, 'x', color='#606060', fontsize=11, fontstyle='italic')
     else:
-        ax.add_patch(patches.Rectangle((-tm/2, -h/2), tm, h, facecolor='#A0A0A0', edgecolor='black'))
-        ax.add_patch(patches.Rectangle((-w/2, h/2-ta), w, ta, facecolor='#606060', edgecolor='black'))
-        ax.add_patch(patches.Rectangle((-w/2, -h/2), w, ta, facecolor='#606060', edgecolor='black'))
+        w, h = d, bf
+        # Alma horizontal
+        ax.add_patch(patches.Rectangle((-w/2 + tf, -tw/2), w - 2*tf, tw, facecolor='#A0A0A0', edgecolor='black'))
+        # Alas verticales
+        ax.add_patch(patches.Rectangle((w/2 - tf, -h/2), tf, h, facecolor='#606060', edgecolor='black'))
+        ax.add_patch(patches.Rectangle((-w/2, -h/2), tf, h, facecolor='#606060', edgecolor='black'))
         # Textos de ejes locales limpios
-        ax.text(0.1, -h/2 - 0.2, 'x', color='#606060', fontsize=11, fontstyle='italic')
-        ax.text(-w/2 - 0.25, 0.1, 'y', color='#606060', fontsize=11, fontstyle='italic')
+        ax.text(tw/2 + limite*0.05, -h/2 - limite*0.15, 'x', color='#606060', fontsize=11, fontstyle='italic')
+        ax.text(-w/2 - limite*0.15, tw/2 + limite*0.05, 'y', color='#606060', fontsize=11, fontstyle='italic')
 
-    # DIBUJO DEL VECTOR MOMENTO (Doble punta)
+    # DIBUJO DEL VECTOR MOMENTO (Escalado dinámicamente)
     def dibujar_vector_momento(x0, y0, dx, dy, color, label):
         ax.plot([x0, x0+dx], [y0, y0+dy], color=color, lw=2.5)
         ax.annotate('', xy=(x0+dx, y0+dy), xytext=(x0+dx-dx*0.01, y0+dy-dy*0.01),
                     arrowprops=dict(arrowstyle="->", lw=2.5, color=color, mutation_scale=20))
-        offset = 0.15 # Reducido para que las flechas queden más juntas y elegantes
+        offset = limite * 0.12 # Distancia entre puntas de flecha escalada
         L = np.hypot(dx, dy)
         ux, uy = dx/L, dy/L
         ax.annotate('', xy=(x0+dx - ux*offset, y0+dy - uy*offset), xytext=(x0+dx - ux*(offset+0.01), y0+dy - uy*(offset+0.01)),
                     arrowprops=dict(arrowstyle="->", lw=2.5, color=color, mutation_scale=20))
-        ax.text(x0+dx + ux*0.1 - uy*0.25, y0+dy + uy*0.1 + ux*0.25, label, color=color, fontsize=14, fontweight='bold', ha='center')
+        ax.text(x0+dx + ux*limite*0.1 - uy*limite*0.2, y0+dy + uy*limite*0.1 + ux*limite*0.2, label, color=color, fontsize=14, fontweight='bold', ha='center')
 
+    # Lógica de dibujo del vector
     if eje_rotacion == 'Y':
-        dibujar_vector_momento(0, -0.65, 0, 1.3, '#CC0000', '$M_Y$')
+        dibujar_vector_momento(0, -limite*0.7, 0, limite*1.4, '#CC0000', '$M_Y$')
     else:
-        dibujar_vector_momento(-0.65, 0, 1.3, 0, '#0066CC', '$M_X$')
+        dibujar_vector_momento(-limite*0.7, 0, limite*1.4, 0, '#0066CC', '$M_X$')
 
     return fig
 
@@ -359,19 +366,22 @@ def generar_datos_y_grafico():
     info = f"TP Nº1 - UNLP\nCol: {perfil_col} ({o_col})\nViga: {perfil_viga} ({o_viga})\nSistema: {SISTEMA.split(' ')[0]}"
     ax.text(L+1.5, 0, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
    
-    return fig, G_Y_sup, G_Y_inf, I_c_plano, I_v_plano, r_plano, r_fuera, K_X_fuera
+    return fig, G_Y_sup, G_Y_inf, I_c_plano, I_v_plano, r_plano, r_fuera, K_X_fuera, props_col
 
 # ============================================================================
 # RENDERIZADO DE PESTAÑAS (TABS)
 # ============================================================================
 pestana_1, pestana_2 = st.tabs(["📐 Definición Geométrica", "🧮 Cálculo de Esbelteces"])
 
-fig_portico, G_Y_sup, G_Y_inf, I_c_plano, I_v_plano, r_plano, r_fuera, K_X_fuera = generar_datos_y_grafico()
+fig_portico, G_Y_sup, G_Y_inf, I_c_plano, I_v_plano, r_plano, r_fuera, K_X_fuera, props_col = generar_datos_y_grafico()
 
 with pestana_1:
     st.pyplot(fig_portico, use_container_width=True)
 
 with pestana_2:
+    # Espaciado extra para separar de la pestaña
+    st.write("<br>", unsafe_allow_html=True)
+    
     if G_Y_sup is None or r_plano == 0:
         st.warning("⚠️ Faltan datos mecánicos en el catálogo para procesar los cálculos.")
     else:
@@ -380,25 +390,27 @@ with pestana_2:
         lbl_c_fuera = "débil" if o_col == "FUERTE" else "fuerte"
 
         # --- SECCIÓN 1: PLANO DEL PÓRTICO ---
-        st.header("1. Esbeltez en el plano del pórtico (Rotación s/ Eje Y Global)")
+        # Título más chico (subheader)
+        st.subheader("1. Esbeltez en el plano del pórtico (Rotación s/ Eje Y Global)")
         st.markdown("---")
         
         col_img1, col_calc1 = st.columns([1, 2.5])
         
         with col_img1:
-            # TÍTULO CORREGIDO SEGÚN TU PEDIDO
             st.markdown("**Eje de pandeo plano del pórtico ($M_Y$)**")
-            fig_corte_y = graficar_corte_cinematico(o_col, 'Y')
+            fig_corte_y = graficar_corte_cinematico_real(o_col, 'Y', props_col['d'], props_col['bf'], props_col['tw'], props_col['tf'])
             st.pyplot(fig_corte_y, use_container_width=True)
             
         with col_calc1:
-            st.subheader("1.1 Cálculo de rigideces relativas ($G_Y$)")
+            # Sub-secciones en negrita simple
+            st.markdown("**1.1 Cálculo de rigideces relativas ($G_Y$)**")
             st.latex(r"G_Y = \frac{\sum (I_{col} / L_{col})}{\sum (I_{viga} / L_{viga})}")
             st.latex(rf"G_{{Y(sup)}} = \frac{{ I_{{\text{{{lbl_c_plano}(col)}}}} / H }}{{ I_{{\text{{{lbl_v_plano}(viga)}}}} / L }}")
             st.latex(rf"G_{{Y(sup)}} = \frac{{{I_c_plano:.1f} \text{{ cm}}^4 / {H*100:.0f} \text{{ cm}}}}{{{I_v_plano:.1f} \text{{ cm}}^4 / {L*100:.0f} \text{{ cm}}}} = {G_Y_sup:.3f}")
             st.info(f"**$G_{{Y(inf)}}$ (Apoyo Inferior) = {G_Y_inf:.2f}**")
 
-            st.subheader("1.2 Factor de longitud efectiva ($K_Y$)")
+            st.write("")
+            st.markdown("**1.2 Factor de longitud efectiva ($K_Y$)**")
             if "Arriostrado" in SISTEMA:
                 K_Y = (3*G_Y_sup*G_Y_inf + 1.4*(G_Y_sup+G_Y_inf) + 0.64) / (3*G_Y_sup*G_Y_inf + 2.0*(G_Y_sup+G_Y_inf) + 1.28)
                 st.latex(r"K_Y = \frac{3 G_A G_B + 1.4(G_A + G_B) + 0.64}{3 G_A G_B + 2.0(G_A + G_B) + 1.28}")
@@ -407,7 +419,8 @@ with pestana_2:
                 st.latex(r"K_Y = \sqrt{\frac{1.6 G_A G_B + 4.0(G_A + G_B) + 7.5}{G_A + G_B + 7.5}}")
             st.success(f"### $K_Y = {K_Y:.3f}$")
 
-            st.subheader("1.3 Verificación de Esbelteces ($\lambda_Y$)")
+            st.write("")
+            st.markdown("**1.3 Verificación de Esbelteces ($\lambda_Y$)**")
             lambda_Y = (K_Y * (H*100)) / r_plano
             st.latex(rf"\lambda_Y = \frac{{K_Y \cdot L_{{col}}}}{{r_{{\text{{{lbl_c_plano}(col)}}}}}}")
             st.latex(rf"\lambda_Y = \frac{{{K_Y:.2f} \cdot {H*100:.0f} \text{{ cm}}}}{{{r_plano:.2f} \text{{ cm}}}} = {lambda_Y:.1f}")
@@ -415,25 +428,25 @@ with pestana_2:
             else: st.error("❌ Supera límite de compresión ($\lambda > 200$)")
 
         # --- SECCIÓN 2: FUERA DEL PLANO ---
-        st.write("")
-        st.header("2. Esbeltez perpendicular al plano (Rotación s/ Eje X Global)")
+        st.write("<br><br>", unsafe_allow_html=True)
+        st.subheader("2. Esbeltez perpendicular al plano (Rotación s/ Eje X Global)")
         st.markdown("---")
         
         col_img2, col_calc2 = st.columns([1, 2.5])
         
         with col_img2:
-            # TÍTULO CORREGIDO SEGÚN TU PEDIDO
             st.markdown("**Eje de pandeo plano perpendicular al pórtico ($M_X$)**")
-            fig_corte_x = graficar_corte_cinematico(o_col, 'X')
+            fig_corte_x = graficar_corte_cinematico_real(o_col, 'X', props_col['d'], props_col['bf'], props_col['tw'], props_col['tf'])
             st.pyplot(fig_corte_x, use_container_width=True)
             
         with col_calc2:
-            st.subheader("2.1 Factor de longitud efectiva ($K_X$)")
+            st.markdown("**2.1 Factor de longitud efectiva ($K_X$)**")
             txt_apoyo = "Empotrado (base) - Articulado (riostra/viga)" if T_APOYO == "Empotrado" else "Articulado (base) - Articulado (riostra/viga)"
             st.info(f"**Tramo Evaluado:** Desde apoyo hasta el primer nudo arriostrado.\n\n**Condición:** {txt_apoyo}")
             st.success(f"### $K_X = {K_X_fuera:.2f}$")
 
-            st.subheader("2.2 Verificación de Esbelteces ($\lambda_X$)")
+            st.write("")
+            st.markdown("**2.2 Verificación de Esbelteces ($\lambda_X$)**")
             L_tramo_y = (FRAC * H) * 100
             lambda_X = (K_X_fuera * L_tramo_y) / r_fuera
             st.latex(rf"\lambda_X = \frac{{K_X \cdot L_{{tramo}}}}{{r_{{\text{{{lbl_c_fuera}(col)}}}}}}")
