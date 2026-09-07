@@ -10,15 +10,18 @@ from fractions import Fraction
 # ============================================================================
 st.set_page_config(page_title="Generador de Pórticos - UNLP", layout="wide")
 
-# CSS Agresivo para forzar el tamaño de las pestañas
+# CSS Súper Agresivo (Multiversión) para forzar el tamaño de las pestañas
 st.markdown("""
 <style>
-    button[data-baseweb="tab"] div[data-testid="stMarkdownContainer"] p {
+    div[data-testid="stTabs"] button p,
+    div[data-baseweb="tab"] p,
+    .stTabs button p,
+    .stTabs [data-testid="stMarkdownContainer"] p {
         font-size: 1.5rem !important;
         font-weight: 700 !important;
         color: #2E5A88 !important;
     }
-    button[data-baseweb="tab"] {
+    div[data-testid="stTabs"] button {
         padding-top: 1rem !important;
         padding-bottom: 1rem !important;
     }
@@ -154,10 +157,10 @@ def dibujar_cotas(ax, x1, y1, x2, y2, texto, offset=0.8, orientacion='horizontal
         ax.text(x1 - offset - 0.3, (y1 + y2) / 2, texto, ha='right', va='center', fontsize=10, fontweight='bold', rotation=90)
 
 # ============================================================================
-# FUNCIONES DE DIBUJO 2D (Cortes Dinámicos Didácticos - NUEVO)
+# FUNCIONES DE DIBUJO 2D (Cortes Dinámicos Didácticos - ACTUALIZADO)
 # ============================================================================
 def graficar_corte_cinematico(orientacion, eje_rotacion):
-    """Dibuja la vista superior y el vector momento doble punta (regla de la mano derecha)"""
+    """Dibuja la vista superior, perfil proporcionado y vector momento doble punta"""
     fig, ax = plt.subplots(figsize=(3, 3), dpi=100)
     ax.set_aspect('equal')
     ax.axis('off')
@@ -169,48 +172,40 @@ def graficar_corte_cinematico(orientacion, eje_rotacion):
     ax.text(1.25, 0.05, 'X', color='gray', fontsize=10, fontweight='bold')
     ax.text(0.05, 1.25, 'Y', color='gray', fontsize=10, fontweight='bold')
 
-    # Geometría Genérica del Perfil
-    w, h, ta, tm = 0.8, 1.2, 0.15, 0.08
+    # Geometría del Perfil (MUCHO MÁS ESTILIZADO)
+    w, h, ta, tm = 0.5, 1.0, 0.08, 0.04 
     
     if orientacion == 'FUERTE':
-        # Eje fuerte en Y (Alma en X, Alas en Y)
         ax.add_patch(patches.Rectangle((-w/2, -tm/2), w, tm, facecolor='#A0A0A0', edgecolor='black'))
         ax.add_patch(patches.Rectangle((-w/2, -h/2), ta, h, facecolor='#606060', edgecolor='black'))
         ax.add_patch(patches.Rectangle((w/2-ta, -h/2), ta, h, facecolor='#606060', edgecolor='black'))
-        # Textos didácticos locales
-        ax.text(0.3, -h/2 - 0.25, 'Eje Débil (y)', color='#606060', fontsize=8)
-        ax.text(-w/2 - 0.45, 0.2, 'Eje Fuerte (x)', color='#606060', fontsize=8, rotation=90)
+        # Textos de ejes locales limpios
+        ax.text(0.1, -h/2 - 0.2, 'y', color='#606060', fontsize=11, fontstyle='italic')
+        ax.text(-w/2 - 0.25, 0.1, 'x', color='#606060', fontsize=11, fontstyle='italic')
     else:
-        # Eje débil en Y (Alma en Y, Alas en X)
         ax.add_patch(patches.Rectangle((-tm/2, -h/2), tm, h, facecolor='#A0A0A0', edgecolor='black'))
         ax.add_patch(patches.Rectangle((-w/2, h/2-ta), w, ta, facecolor='#606060', edgecolor='black'))
         ax.add_patch(patches.Rectangle((-w/2, -h/2), w, ta, facecolor='#606060', edgecolor='black'))
-        # Textos didácticos locales
-        ax.text(0.3, -h/2 - 0.25, 'Eje Fuerte (x)', color='#606060', fontsize=8)
-        ax.text(-w/2 - 0.45, 0.2, 'Eje Débil (y)', color='#606060', fontsize=8, rotation=90)
+        # Textos de ejes locales limpios
+        ax.text(0.1, -h/2 - 0.2, 'x', color='#606060', fontsize=11, fontstyle='italic')
+        ax.text(-w/2 - 0.25, 0.1, 'y', color='#606060', fontsize=11, fontstyle='italic')
 
     # DIBUJO DEL VECTOR MOMENTO (Doble punta)
     def dibujar_vector_momento(x0, y0, dx, dy, color, label):
-        # Línea central gruesa
         ax.plot([x0, x0+dx], [y0, y0+dy], color=color, lw=2.5)
-        # Punta 1 (Final)
         ax.annotate('', xy=(x0+dx, y0+dy), xytext=(x0+dx-dx*0.01, y0+dy-dy*0.01),
                     arrowprops=dict(arrowstyle="->", lw=2.5, color=color, mutation_scale=20))
-        # Punta 2 (Desplazada hacia atrás)
-        offset = 0.18
+        offset = 0.15 # Reducido para que las flechas queden más juntas y elegantes
         L = np.hypot(dx, dy)
         ux, uy = dx/L, dy/L
         ax.annotate('', xy=(x0+dx - ux*offset, y0+dy - uy*offset), xytext=(x0+dx - ux*(offset+0.01), y0+dy - uy*(offset+0.01)),
                     arrowprops=dict(arrowstyle="->", lw=2.5, color=color, mutation_scale=20))
-        # Etiqueta desplazada
         ax.text(x0+dx + ux*0.1 - uy*0.25, y0+dy + uy*0.1 + ux*0.25, label, color=color, fontsize=14, fontweight='bold', ha='center')
 
     if eje_rotacion == 'Y':
-        # Vector alineado en el Eje Y Global
-        dibujar_vector_momento(0, -0.7, 0, 1.4, '#CC0000', '$M_Y$')
+        dibujar_vector_momento(0, -0.65, 0, 1.3, '#CC0000', '$M_Y$')
     else:
-        # Vector alineado en el Eje X Global
-        dibujar_vector_momento(-0.7, 0, 1.4, 0, '#0066CC', '$M_X$')
+        dibujar_vector_momento(-0.65, 0, 1.3, 0, '#0066CC', '$M_X$')
 
     return fig
 
@@ -391,7 +386,8 @@ with pestana_2:
         col_img1, col_calc1 = st.columns([1, 2.5])
         
         with col_img1:
-            st.markdown("**Sección Columna y Momento Flector ($M_Y$)**")
+            # TÍTULO CORREGIDO SEGÚN TU PEDIDO
+            st.markdown("**Eje de pandeo plano del pórtico ($M_Y$)**")
             fig_corte_y = graficar_corte_cinematico(o_col, 'Y')
             st.pyplot(fig_corte_y, use_container_width=True)
             
@@ -426,7 +422,8 @@ with pestana_2:
         col_img2, col_calc2 = st.columns([1, 2.5])
         
         with col_img2:
-            st.markdown("**Sección Columna y Momento Flector ($M_X$)**")
+            # TÍTULO CORREGIDO SEGÚN TU PEDIDO
+            st.markdown("**Eje de pandeo plano perpendicular al pórtico ($M_X$)**")
             fig_corte_x = graficar_corte_cinematico(o_col, 'X')
             st.pyplot(fig_corte_x, use_container_width=True)
             
