@@ -236,7 +236,35 @@ def generar_grafico():
     # Ahora usamos los espesores reales multiplicados por la escala visual para dibujar!
     E_ALA_C = max(props_col['tf'] * esc, 0.06) 
     E_ALA_V = max(props_viga['tf'] * esc, 0.06)
+
+	# ============================================================================
+    # CÁLCULO DE RIGIDEZ (G Superior e Inferior)
+    # ============================================================================
+    # 1. Asignar Inercia Columna (cm4) según orientación
+    I_c = props_col['Ix'] if o_col == 'FUERTE' else props_col['Iy']
     
+    # 2. Asignar Inercia Viga (cm4) según orientación
+    I_v = props_viga['Ix'] if o_viga == 'FUERTE' else props_viga['Iy']
+    
+    # 3. Calcular G Superior
+    if I_c > 0 and I_v > 0:
+        rigidez_columna = I_c / (H * 100) # Convertimos H de metros a centímetros
+        rigidez_viga = I_v / (L * 100)    # Convertimos L de metros a centímetros
+        G_sup = rigidez_columna / rigidez_viga
+    else:
+        G_sup = None
+        
+    # 4. Calcular G Inferior (Valores teóricos reglamentarios)
+    G_inf = 1.0 if T_APOYO == "Empotrado" else 10.0
+    
+    # 5. Mostrar resultados en la barra lateral
+    if G_sup is not None:
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("**📊 Resultados de Rigidez**")
+        st.sidebar.info(f"G Superior (Nudo): {G_sup:.2f}\nG Inferior (Apoyo): {G_inf:.2f}")
+    else:
+        st.sidebar.error("⚠️ Faltan datos de inercia para calcular G.")
+	
     lw_ext = 1.5
     lw_int = 1.0
 
