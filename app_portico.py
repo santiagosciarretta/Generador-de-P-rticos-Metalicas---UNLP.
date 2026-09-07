@@ -530,7 +530,7 @@ with pestana_3:
             lambda_rf = 0.56 * np.sqrt(E_acero / Fy)
             st.markdown("*(Tabla B4.1.A - Caso 2)*")
             st.latex(rf"\lambda_f = \frac{{b_f}}{{2 t_f}} = \frac{{{bf_cm:.1f}}}{{{2} \cdot {tf_cm:.2f}}} = {lambda_f:.2f}")
-            st.latex(rf"\lambda_{{r}} = 0.56 \sqrt{\frac{{E}}{{F_y}}} = {lambda_rf:.2f}")
+            st.latex(rf"\lambda_{{r}} = 0.56 \\sqrt{{\frac{{E}}{{F_y}}}} = {lambda_rf:.2f}")
             ala_esbelta = lambda_f > lambda_rf
             if not ala_esbelta: st.success("Alas: No Esbeltas ✅")
             else: st.error("Alas: Esbeltas ❌")
@@ -541,7 +541,7 @@ with pestana_3:
             lambda_rw = 1.49 * np.sqrt(E_acero / Fy)
             st.markdown("*(Tabla B4.1.A - Caso 5)*")
             st.latex(rf"\lambda_w = \frac{{h_w}}{{t_w}} = \frac{{{hw_cm:.1f}}}{{{tw_cm:.2f}}} = {lambda_w:.2f}")
-            st.latex(rf"\lambda_{{r}} = 1.49 \sqrt{\frac{{E}}{{F_y}}} = {lambda_rw:.2f}")
+            st.latex(rf"\lambda_{{r}} = 1.49 \\sqrt{{\frac{{E}}{{F_y}}}} = {lambda_rw:.2f}")
             alma_esbelta = lambda_w > lambda_rw
             if not alma_esbelta: st.success("Alma: No Esbelta ✅")
             else: st.error("Alma: Esbelta ❌")
