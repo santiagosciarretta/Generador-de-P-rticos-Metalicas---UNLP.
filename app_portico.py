@@ -6,37 +6,39 @@ import pandas as pd
 from fractions import Fraction
 
 # ============================================================================
-# CONFIGURACIÓN Y CÁLCULOS
+# CONFIGURACIÓN Y ESTÉTICA (CSS)
 # ============================================================================
 st.set_page_config(page_title="Generador de Pórticos - UNLP", layout="wide")
 
-st.title("🏗️ Generador Automático de Pórticos - UNLP")
-st.markdown("### Ing. Santiago Sciarretta")
+# CSS para agrandar las pestañas
+st.markdown("""
+<style>
+    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Títulos más discretos
+st.header("🏗️ Generador Automático de Pórticos - UNLP")
+st.markdown("**Ing. Santiago Sciarretta**")
+st.markdown("---")
 
 # ============================================================================
 # MOTOR DE DATOS: BASE DE PERFILES AISC
 # ============================================================================
 @st.cache_data
 def cargar_base_perfiles():
-    """Lee el Excel y limpia los nombres sin borrar ninguna columna para evitar desfasajes"""
     df = pd.read_excel("Perfiles AISC.xlsx", header=1)
-    
-    # Renombramos la columna 3 (índice 2) forzadamente para asegurar el Label
     df.rename(columns={df.columns[2]: 'AISC_Manual_Label'}, inplace=True)
-    
-    # Limpiamos todos los encabezados (quitamos espacios y saltos de línea molestos)
     df.columns = [str(col).replace('\n', '').replace(' ', '') for col in df.columns]
-    
-    # Nos quedamos solo con las filas que son perfiles reales
     df_metrico = df.dropna(subset=['AISC_Manual_Label'])
-    
     return df_metrico
 
 df_perfiles = cargar_base_perfiles()
-lista_perfiles_totales = df_perfiles['AISC_Manual_Label'].tolist()
 
 def obtener_propiedades_perfil(nombre_perfil):
-    """Busca las propiedades leyendo celda por celda y asumiendo dimensiones en CENTÍMETROS"""
     try:
         datos = df_perfiles[df_perfiles['AISC_Manual_Label'] == nombre_perfil].iloc[0]
         
@@ -47,35 +49,28 @@ def obtener_propiedades_perfil(nombre_perfil):
                     if pd.notna(val):
                         try:
                             numero = float(val)
-                            if numero > 0:
-                                return numero
-                        except:
-                            pass
+                            if numero > 0: return numero
+                        except: pass
             return 0.0
 
-        # Dividimos por 100.0 porque la tabla está en cm (no en mm)
         props = {
-            'd': buscar_metrica('d') / 100.0,       # Peralte (de cm a m)
-            'bf': buscar_metrica('bf') / 100.0,     # Ancho ala (de cm a m)
-            'tw': buscar_metrica('tw') / 100.0,     # Espesor alma (de cm a m)
-            'tf': buscar_metrica('tf') / 100.0,     # Espesor ala (de cm a m)
-            'Ix': buscar_metrica('ix'),             # Inercia X (queda en cm4)
-            'Iy': buscar_metrica('iy')              # Inercia Y (queda en cm4)
+            'd': buscar_metrica('d') / 100.0,
+            'bf': buscar_metrica('bf') / 100.0,
+            'tw': buscar_metrica('tw') / 100.0,
+            'tf': buscar_metrica('tf') / 100.0,
+            'Ix': buscar_metrica('ix'),
+            'Iy': buscar_metrica('iy')
         }
         
-        # Rescate si por algún motivo la tabla no tenía la altura cargada
         if props['d'] == 0:
             return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0}
-            
         return props
     except Exception as e:
-        st.error(f"Error procesando {nombre_perfil}: {e}")
         return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0}
 
 # ============================================================================
-# FUNCIONES DE DIBUJO
+# FUNCIONES DE DIBUJO (Mantenidas exactas)
 # ============================================================================
-
 def dibujar_apoyo_articulado(ax, x, y, escala=0.35):
     vertices = [[x, y], [x-escala, y-escala], [x+escala, y-escala]]
     triangle = patches.Polygon(vertices, closed=True, edgecolor='black', facecolor='white', linewidth=1.8, zorder=5)
@@ -110,10 +105,8 @@ def dibujar_arriostramiento_y(ax, x, y):
     ax.plot([p2x, p3x], [p2y, p3y], color='#0066CC', linewidth=1.5, zorder=3)
 
 def dibujar_seccion_ipe(ax, x, y, orientacion='FUERTE', escala=0.45):
-    """Sección en planta de la columna"""
     w, h = (1.0 * escala) * 1.5, (0.65 * escala) * 2.0
     ta, tm = 0.16 * escala * 1.5, 0.08 * escala * 1.5
-    
     if orientacion == 'FUERTE':
         ax.add_patch(patches.Rectangle((x - w/2, y - tm/2), w, tm, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - w/2, y - h/2), ta, h, facecolor='gray', edgecolor='black', alpha=0.7))
@@ -123,7 +116,6 @@ def dibujar_seccion_ipe(ax, x, y, orientacion='FUERTE', escala=0.45):
         ax.add_patch(patches.Rectangle((x - w/2, y + h/2 - ta), w, ta, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - w/2, y - h/2), w, ta, facecolor='gray', edgecolor='black', alpha=0.7))
     
-    # Ejes Locales en la Planta (X=Rojo, Y=Verde)
     color_x, color_y = '#CC0000', '#008000'
     ax.annotate('', xy=(x + (w/2 + 0.3), y), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=color_x, lw=1.2))
     ax.text(x + (w/2 + 0.4), y - 0.1, 'x', fontsize=9, color=color_x, fontweight='bold')
@@ -131,10 +123,8 @@ def dibujar_seccion_ipe(ax, x, y, orientacion='FUERTE', escala=0.45):
     ax.text(x - 0.15, y + (h/2 + 0.4), 'y', fontsize=9, color=color_y, fontweight='bold')
 
 def dibujar_seccion_viga(ax, x, y, orientacion='FUERTE', escala=0.45):
-    """Sección lateral de la viga (Vista en el plano Y-Z)"""
     w, h = (1.0 * escala) * 1.5, (0.65 * escala) * 2.0
     ta, tm = 0.16 * escala * 1.5, 0.08 * escala * 1.5
-    
     if orientacion == 'FUERTE':
         ax.add_patch(patches.Rectangle((x - tm/2, y - h/2), tm, h, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - w/2, y + h/2 - ta), w, ta, facecolor='gray', edgecolor='black', alpha=0.7))
@@ -171,8 +161,7 @@ H = st.sidebar.number_input("Altura (H) [m]", value=5.5)
 L = st.sidebar.number_input("Longitud (L) [m]", value=7.0)
 
 SISTEMA = st.sidebar.radio("Sistema Lateral", 
-                           ["No arriostrado (Translacional)", "Arriostrado (Intranslacional)"],
-                           help="Define si el pórtico permite o no el desplazamiento lateral.")
+                           ["No arriostrado (Translacional)", "Arriostrado (Intranslacional)"])
 
 todas_las_series = df_perfiles.iloc[:, 0].dropna().unique().tolist()
 series_permitidas = ["W", "IPE", "IPN", "HEB", "HEA", "UPN"]
@@ -185,7 +174,6 @@ perfil_col = st.sidebar.selectbox("Tamaño", lista_col_filtrada, key="sc")
 o_col = st.sidebar.radio("Orientación (Col)", ["FUERTE", "DEBIL"], key="oc", horizontal=True)
 
 st.sidebar.markdown("---")
-
 st.sidebar.markdown("**Viga**")
 serie_viga = st.sidebar.selectbox("Tipo de Perfil", series_disponibles, index=series_disponibles.index("W") if "W" in series_disponibles else 0, key="tipo_v")
 lista_viga_filtrada = df_perfiles[df_perfiles.iloc[:, 0] == serie_viga]['AISC_Manual_Label'].tolist()
@@ -193,51 +181,54 @@ perfil_viga = st.sidebar.selectbox("Tamaño", lista_viga_filtrada, key="sv")
 o_viga = st.sidebar.radio("Orientación (Viga)", ["FUERTE", "DEBIL"], key="ov", horizontal=True)
 
 st.sidebar.markdown("---")
-
 with st.sidebar.expander("Arriostramientos"):
     NUDOS = st.checkbox("Nudos superior", value=True)
     CANT = st.number_input("Cant. Intermedios", min_value=0, value=2, step=1)
     FRAC = st.slider("Fracción H", 0.1, 1.0, 0.33)
 
-T_APOYO = st.sidebar.selectbox("Apoyo", ["Empotrado", "Articulado"])
+T_APOYO = st.sidebar.selectbox("Apoyo Inferior", ["Empotrado", "Articulado"])
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 2) Criterios de Cálculo")
+CRITERIO = st.sidebar.radio("Condiciones de Borde", ["Sugeridos (AISC/CIRSOC)", "Teóricos Ideales"], 
+                            help="Define si se usan los valores puros de la estática o los recomendados por norma para el diseño.")
 
 # ============================================================================
-# MOTOR DE DIBUJO Y CÁLCULO
+# MOTOR CENTRAL
 # ============================================================================
-
-def generar_grafico():
+def generar_datos_y_grafico():
     props_col = obtener_propiedades_perfil(perfil_col)
     props_viga = obtener_propiedades_perfil(perfil_viga)
     
-    D_COL_R = props_col['d']
-    D_VIGA_R = props_viga['d']
-    
+    D_COL_R, D_VIGA_R = props_col['d'], props_viga['d']
     esc = 0.8 / 0.40
     D_C, D_V = D_COL_R * esc, D_VIGA_R * esc
-    E_ALA_C = max(props_col['tf'] * esc, 0.06) 
-    E_ALA_V = max(props_viga['tf'] * esc, 0.06)
+    E_ALA_C, E_ALA_V = max(props_col['tf'] * esc, 0.06), max(props_viga['tf'] * esc, 0.06)
     
-    # ============================================================================
-    # CÁLCULO DE RIGIDEZ (G Superior e Inferior)
-    # ============================================================================
+    # --- CÁLCULO G Y K ---
     I_c = props_col['Ix'] if o_col == 'FUERTE' else props_col['Iy']
     I_v = props_viga['Ix'] if o_viga == 'FUERTE' else props_viga['Iy']
     
+    G_sup = None
     if I_c > 0 and I_v > 0:
         rigidez_columna = I_c / (H * 100) 
         rigidez_viga = I_v / (L * 100)    
         G_sup = rigidez_columna / rigidez_viga
-    else:
-        G_sup = None
         
-    G_inf = 1.0 if T_APOYO == "Empotrado" else 10.0
-    
-    # ============================================================================
-    # DIBUJO
-    # ============================================================================
-    lw_ext = 1.5
-    lw_int = 1.0
+    # Asignación de G_inf según Criterio
+    if T_APOYO == "Empotrado":
+        G_inf = 0.0 if CRITERIO == "Teóricos Ideales" else 1.0
+    else:
+        G_inf = 1000.0 if CRITERIO == "Teóricos Ideales" else 10.0
 
+    # Asignación K Fuera del Plano (Tramo inferior)
+    if T_APOYO == "Empotrado":
+        Ky = 0.70 if CRITERIO == "Teóricos Ideales" else 0.80
+    else:
+        Ky = 1.00 # Articulado-Articulado es 1.0 en ambos criterios
+
+    # --- DIBUJO ---
+    lw_ext, lw_int = 1.5, 1.0
     fig, ax = plt.subplots(figsize=(12, 9), dpi=300) 
     ax.set_aspect('equal')
     ax.axis('off')
@@ -255,16 +246,13 @@ def generar_grafico():
     ax.plot([xo], [yo], 'o', color='black', markersize=4)
 
     vs, vi = H + D_V/2, H - D_V/2
-    GROSOR_EJE = 0.8
-    GROSOR_ALMA_OCULTA = 0.6
-    COLOR_ALMA_GRIS = '#222222' 
+    GROSOR_EJE, GROSOR_ALMA_OCULTA, COLOR_ALMA_GRIS = 0.8, 0.6, '#222222' 
     
     for x in [0, L]:
         ax.plot([x-D_C/2, x-D_C/2], [0, vs], 'k', lw=lw_ext, zorder=1)
         ax.plot([x+D_C/2, x+D_C/2], [0, vs], 'k', lw=lw_ext, zorder=1)
         ax.plot([x-D_C/2, x+D_C/2], [0, 0], 'k', lw=lw_ext, zorder=1)
         ax.plot([x-D_C/2, x+D_C/2], [vs, vs], 'k', lw=lw_ext, zorder=1)
-        
         ax.plot([x, x], [0, H], color='black', linestyle='-.', lw=GROSOR_EJE, zorder=4, snap=True)
         
         if o_col == 'FUERTE':
@@ -275,15 +263,12 @@ def generar_grafico():
             ax.plot([x - off/2, x - off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
             ax.plot([x + off/2, x + off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
 
-        if T_APOYO == "Empotrado": 
-            dibujar_apoyo_empotrado(ax, x, 0)
-        else: 
-            dibujar_apoyo_articulado(ax, x, 0)
+        if T_APOYO == "Empotrado": dibujar_apoyo_empotrado(ax, x, 0)
+        else: dibujar_apoyo_articulado(ax, x, 0)
         
         dibujar_seccion_ipe(ax, x, -1.5, orientacion=o_col)
 
     ax.plot([0, L], [H, H], color='black', linestyle='-.', lw=GROSOR_EJE, zorder=4, snap=True)
-    
     xfi, xfd = D_C/2, L - D_C/2
     ax.plot([xfi, xfd], [vi, vi], 'k', lw=lw_ext, zorder=1)
     ax.plot([xfi, xfd], [vs, vs], 'k', lw=lw_ext, zorder=1)
@@ -316,8 +301,7 @@ def generar_grafico():
         dibujar_arriostramiento_y(ax, 0, yp)
         dibujar_arriostramiento_y(ax, L, yp)
 
-    y_p = 0
-    xc = D_C/2 + 1.0
+    y_p, xc = 0, D_C/2 + 1.0
     for yp in pos:
         dist = yp - y_p
         if dist > 0.1:
@@ -330,9 +314,7 @@ def generar_grafico():
                 elif abs(FRAC - 1/3) < 0.001: texto_h = "H/3"
                 elif abs(FRAC - 1/4) < 0.001: texto_h = "H/4"
                 elif abs(FRAC - 1/5) < 0.001: texto_h = "H/5"
-                else: 
-                    texto_h = f"{FRAC:.2f} H"
-                
+                else: texto_h = f"{FRAC:.2f} H"
                 ax.text(xc - 0.1, y_mid, texto_h, rotation=90, va='center', ha='right', fontsize=9, color='#0066CC', fontweight='bold')
                 ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=9)
             else:
@@ -344,41 +326,82 @@ def generar_grafico():
 
     texto_nudos = "Sí" if NUDOS else "No"
     tipo_portico_txt = "Arriostrado" if "Arriostrado" in SISTEMA else "No arriostrado"
-    
-    info = (
-        f"TP Nº1 - ESTRUCTURAS METÁLICAS\n"
-        f"Tipo de Pórtico: {tipo_portico_txt}\n"
-        f"Col: {perfil_col} ({o_col})\n"
-        f"Viga: {perfil_viga} ({o_viga})\n"
-        f"Arriostramientos nudos sup.: {texto_nudos}\n"
-        f"Arriostramientos intermedios: {int(CANT)}"
-    )
-
+    info = (f"TP Nº1 - ESTRUCTURAS METÁLICAS\nTipo de Pórtico: {tipo_portico_txt}\nCol: {perfil_col} ({o_col})\n"
+            f"Viga: {perfil_viga} ({o_viga})\nArriostramientos nudos sup.: {texto_nudos}\nArriostramientos intermedios: {int(CANT)}")
     ax.text(L+1.5, 0, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
    
-    st.pyplot(fig, use_container_width=True)
-    
-    return G_sup, G_inf
+    return fig, G_sup, G_inf, I_c, I_v, Ky
 
 # ============================================================================
 # RENDERIZADO DE PESTAÑAS (TABS)
 # ============================================================================
 pestana_1, pestana_2 = st.tabs(["📐 Definición Geométrica", "🧮 Cálculo de Esbelteces"])
 
+fig_portico, G_sup, G_inf, I_c, I_v, Ky = generar_datos_y_grafico()
+
 with pestana_1:
-    G_sup, G_inf = generar_grafico()
+    st.pyplot(fig_portico, use_container_width=True)
 
 with pestana_2:
-    st.header("Resultados del Análisis de Rigidez")
-    
-    if G_sup is not None:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.info(f"**Nudo Superior ($G_A$)**\n\nValor: {G_sup:.3f}")
-        with col2:
-            st.info(f"**Nudo Inferior ($G_B$)**\n\nValor: {G_inf:.3f}")
-            
-        st.markdown("---")
-        st.markdown("*(Acá próximamente vamos a programar el cálculo de K y las esbelteces $\lambda$)*")
+    if G_sup is None:
+        st.warning("⚠️ Faltan datos de inercia en el catálogo para procesar los cálculos.")
     else:
-        st.warning("Faltan datos de inercia para calcular los coeficientes de rigidez.")
+        st.subheader("1. Cálculo de Rigidez Relativa en los Nudos ($G$)")
+        
+        col_calc_G, col_res_G = st.columns([1.2, 1])
+        
+        with col_calc_G:
+            st.markdown("**Planteo Nudo Superior ($G_A$):**")
+            # 1. Fórmula General
+            st.latex(r"G = \frac{\sum (I_{col} / L_{col})}{\sum (I_{viga} / L_{viga})}")
+            
+            # 2. Fórmula Adaptada a la Selección
+            eje_c = "x" if o_col == "FUERTE" else "y"
+            eje_v = "x" if o_viga == "FUERTE" else "y"
+            st.latex(rf"G_A = \frac{{I_{eje_c(col)} / H}}{{I_{eje_v(viga)} / L}}")
+            
+            # 3. Reemplazo Numérico
+            st.latex(rf"G_A = \frac{{{I_c:.1f} \text{{ cm}}^4 / {H*100:.0f} \text{{ cm}}}}{{{I_v:.1f} \text{{ cm}}^4 / {L*100:.0f} \text{{ cm}}}}")
+            
+        with col_res_G:
+            st.success(f"**Resultado $G_A$ (Nudo Superior)**\n### $G_A = {G_sup:.3f}$")
+            
+            st.markdown("---")
+            st.info(f"**Resultado $G_B$ (Nudo Inferior)**\n### $G_B = {G_inf:.2f}$")
+            
+            if G_inf >= 1000:
+                st.caption("*(Nota: Para el apoyo articulado teórico se adopta un valor numéricamente alto, $G_B = 1000$, para representar la rigidez nula).*")
+
+        st.markdown("---")
+        st.subheader("2. Factor de Longitud Efectiva ($K$)")
+        
+        col_Kx, col_Ky = st.columns(2)
+        
+        with col_Kx:
+            st.markdown("**Plano del Pórtico ($K_x$)**")
+            st.markdown(f"Criterio: *Expresiones aproximadas de Dumonteil (AISC/CIRSOC)*")
+            
+            if "Arriostrado" in SISTEMA:
+                # FÓRMULA INTRANSLACIONAL
+                Kx = (3*G_sup*G_inf + 1.4*(G_sup+G_inf) + 0.64) / (3*G_sup*G_inf + 2.0*(G_sup+G_inf) + 1.28)
+                st.latex(r"K_x = \frac{3 G_A G_B + 1.4(G_A + G_B) + 0.64}{3 G_A G_B + 2.0(G_A + G_B) + 1.28}")
+                st.latex(rf"K_x = \frac{{3({G_sup:.2f})({G_inf:.2f}) + 1.4({G_sup:.2f} + {G_inf:.2f}) + 0.64}}{{3({G_sup:.2f})({G_inf:.2f}) + 2.0({G_sup:.2f} + {G_inf:.2f}) + 1.28}}")
+            else:
+                # FÓRMULA TRANSLACIONAL
+                Kx = np.sqrt((1.6*G_sup*G_inf + 4.0*(G_sup+G_inf) + 7.5) / (G_sup + G_inf + 7.5))
+                st.latex(r"K_x = \sqrt{\frac{1.6 G_A G_B + 4.0(G_A + G_B) + 7.5}{G_A + G_B + 7.5}}")
+                st.latex(rf"K_x = \sqrt{{\frac{{1.6({G_sup:.2f})({G_inf:.2f}) + 4.0({G_sup:.2f} + {G_inf:.2f}) + 7.5}}{{{G_sup:.2f} + {G_inf:.2f} + 7.5}}}}")
+            
+            st.success(f"### $K_x = {Kx:.3f}$")
+
+        with col_Ky:
+            st.markdown("**Fuera del Plano ($K_y$)**")
+            st.markdown("Considerando el tramo inferior de la columna (desde el apoyo hasta el primer nudo arriostrado):")
+            
+            if T_APOYO == "Empotrado":
+                texto_apoyos = "Empotrado (base) - Articulado (riostra/viga)"
+            else:
+                texto_apoyos = "Articulado (base) - Articulado (riostra/viga)"
+                
+            st.info(f"**Condición de Borde Evaluada:**\n{texto_apoyos}")
+            st.success(f"### $K_y = {Ky:.2f}$")
