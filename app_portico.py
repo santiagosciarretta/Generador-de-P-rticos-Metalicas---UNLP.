@@ -53,7 +53,7 @@ def obtener_propiedades_perfil(nombre_perfil):
                             pass
             return 0.0
 
-        # ¡LA CORRECCIÓN MÁGICA!: Dividimos por 100.0 porque la tabla está en cm (no en mm)
+        # Dividimos por 100.0 porque la tabla está en cm (no en mm)
         props = {
             'd': buscar_metrica('d') / 100.0,       # Peralte (de cm a m)
             'bf': buscar_metrica('bf') / 100.0,     # Ancho ala (de cm a m)
@@ -136,17 +136,14 @@ def dibujar_seccion_viga(ax, x, y, orientacion='FUERTE', escala=0.45):
     ta, tm = 0.16 * escala * 1.5, 0.08 * escala * 1.5
     
     if orientacion == 'FUERTE':
-        # Alma vertical, alas horizontales
         ax.add_patch(patches.Rectangle((x - tm/2, y - h/2), tm, h, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - w/2, y + h/2 - ta), w, ta, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - w/2, y - h/2), w, ta, facecolor='gray', edgecolor='black', alpha=0.7))
     else:
-        # Alma horizontal, alas verticales
         ax.add_patch(patches.Rectangle((x - h/2, y - tm/2), h, tm, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x - h/2, y - w/2), ta, w, facecolor='gray', edgecolor='black', alpha=0.7))
         ax.add_patch(patches.Rectangle((x + h/2 - ta, y - w/2), ta, w, facecolor='gray', edgecolor='black', alpha=0.7))
         
-    # Ejes Locales de la Viga (Y=Verde, Z=Azul)
     color_y, color_z = '#008000', '#0066CC'
     dim_y = w/2 if orientacion == 'FUERTE' else h/2
     dim_z = h/2 if orientacion == 'FUERTE' else w/2
@@ -168,31 +165,21 @@ def dibujar_cotas(ax, x1, y1, x2, y2, texto, offset=0.8, orientacion='horizontal
 # INTERFAZ SIDEBAR
 # ============================================================================
 st.sidebar.header("⚙️ Parámetros")
-st.sidebar.markdown("### 1) Definición geométrica") # Nuevo encabezado numerado
+st.sidebar.markdown("### 1) Definición geométrica")
 
 H = st.sidebar.number_input("Altura (H) [m]", value=5.5)
 L = st.sidebar.number_input("Longitud (L) [m]", value=7.0)
 
-# Nuevo parámetro para el cálculo de K y representación gráfica
 SISTEMA = st.sidebar.radio("Sistema Lateral", 
                            ["No arriostrado (Translacional)", "Arriostrado (Intranslacional)"],
                            help="Define si el pórtico permite o no el desplazamiento lateral.")
 
-# Obtenemos todas las familias de la base de datos
 todas_las_series = df_perfiles.iloc[:, 0].dropna().unique().tolist()
-
-# -------------------------------------------------------------------------
-# FILTRO DE SERIES: Escribí acá adentro solo las familias que querés usar
 series_permitidas = ["W", "IPE", "IPN", "HEB", "HEA", "UPN"]
-# -------------------------------------------------------------------------
-
-# Filtramos la lista para que solo queden las permitidas (y en el orden que las pusiste arriba)
 series_disponibles = [s for s in series_permitidas if s in todas_las_series]
 
 st.sidebar.markdown("**Columna**")
-# 1. Selector de Familia (Serie) para Columna
 serie_col = st.sidebar.selectbox("Tipo de Perfil", series_disponibles, index=series_disponibles.index("W") if "W" in series_disponibles else 0, key="tipo_c")
-# 2. Filtramos y mostramos solo los tamaños de esa familia
 lista_col_filtrada = df_perfiles[df_perfiles.iloc[:, 0] == serie_col]['AISC_Manual_Label'].tolist()
 perfil_col = st.sidebar.selectbox("Tamaño", lista_col_filtrada, key="sc")
 o_col = st.sidebar.radio("Orientación (Col)", ["FUERTE", "DEBIL"], key="oc", horizontal=True)
@@ -200,9 +187,7 @@ o_col = st.sidebar.radio("Orientación (Col)", ["FUERTE", "DEBIL"], key="oc", ho
 st.sidebar.markdown("---")
 
 st.sidebar.markdown("**Viga**")
-# 1. Selector de Familia (Serie) para Viga
 serie_viga = st.sidebar.selectbox("Tipo de Perfil", series_disponibles, index=series_disponibles.index("W") if "W" in series_disponibles else 0, key="tipo_v")
-# 2. Filtramos y mostramos solo los tamaños de esa familia
 lista_viga_filtrada = df_perfiles[df_perfiles.iloc[:, 0] == serie_viga]['AISC_Manual_Label'].tolist()
 perfil_viga = st.sidebar.selectbox("Tamaño", lista_viga_filtrada, key="sv")
 o_viga = st.sidebar.radio("Orientación (Viga)", ["FUERTE", "DEBIL"], key="ov", horizontal=True)
@@ -210,7 +195,6 @@ o_viga = st.sidebar.radio("Orientación (Viga)", ["FUERTE", "DEBIL"], key="ov", 
 st.sidebar.markdown("---")
 
 with st.sidebar.expander("Arriostramientos"):
-    # IMPORTANTE: Dentro del expander usamos st. directamente, sin el .sidebar
     NUDOS = st.checkbox("Nudos superior", value=True)
     CANT = st.number_input("Cant. Intermedios", min_value=0, value=2, step=1)
     FRAC = st.slider("Fracción H", 0.1, 1.0, 0.33)
@@ -218,67 +202,49 @@ with st.sidebar.expander("Arriostramientos"):
 T_APOYO = st.sidebar.selectbox("Apoyo", ["Empotrado", "Articulado"])
 
 # ============================================================================
-# MOTOR DE DIBUJO
+# MOTOR DE DIBUJO Y CÁLCULO
 # ============================================================================
 
 def generar_grafico():
-    # Extraemos todas las propiedades del catálogo
     props_col = obtener_propiedades_perfil(perfil_col)
     props_viga = obtener_propiedades_perfil(perfil_viga)
     
     D_COL_R = props_col['d']
     D_VIGA_R = props_viga['d']
     
-    # Escala visual del pórtico
     esc = 0.8 / 0.40
     D_C, D_V = D_COL_R * esc, D_VIGA_R * esc
-    
-    # Ahora usamos los espesores reales multiplicados por la escala visual para dibujar!
     E_ALA_C = max(props_col['tf'] * esc, 0.06) 
     E_ALA_V = max(props_viga['tf'] * esc, 0.06)
-
-	# ============================================================================
+    
+    # ============================================================================
     # CÁLCULO DE RIGIDEZ (G Superior e Inferior)
     # ============================================================================
-    # 1. Asignar Inercia Columna (cm4) según orientación
     I_c = props_col['Ix'] if o_col == 'FUERTE' else props_col['Iy']
-    
-    # 2. Asignar Inercia Viga (cm4) según orientación
     I_v = props_viga['Ix'] if o_viga == 'FUERTE' else props_viga['Iy']
     
-    # 3. Calcular G Superior
     if I_c > 0 and I_v > 0:
-        rigidez_columna = I_c / (H * 100) # Convertimos H de metros a centímetros
-        rigidez_viga = I_v / (L * 100)    # Convertimos L de metros a centímetros
+        rigidez_columna = I_c / (H * 100) 
+        rigidez_viga = I_v / (L * 100)    
         G_sup = rigidez_columna / rigidez_viga
     else:
         G_sup = None
         
-    # 4. Calcular G Inferior (Valores teóricos reglamentarios)
     G_inf = 1.0 if T_APOYO == "Empotrado" else 10.0
     
-    # 5. Mostrar resultados en la barra lateral
-    if G_sup is not None:
-        st.sidebar.markdown("---")
-        st.sidebar.markdown("**📊 Resultados de Rigidez**")
-        st.sidebar.info(f"G Superior (Nudo): {G_sup:.2f}\nG Inferior (Apoyo): {G_inf:.2f}")
-    else:
-        st.sidebar.error("⚠️ Faltan datos de inercia para calcular G.")
-	
+    # ============================================================================
+    # DIBUJO
+    # ============================================================================
     lw_ext = 1.5
     lw_int = 1.0
 
     fig, ax = plt.subplots(figsize=(12, 9), dpi=300) 
     ax.set_aspect('equal')
     ax.axis('off')
-
-    # Aumentamos el límite X para que entre el cuadro de información desplazado
     ax.set_xlim(-4.01, L + 5); ax.set_ylim(-4.01, H + 2)
 
-    # 1. EJES GLOBALES
     color_x, color_y, color_z = '#CC0000', '#008000', '#0066CC'
     xo, yo = -3.5, 0
-    
     ax.annotate('', xy=(xo+1, yo), xytext=(xo, yo), arrowprops=dict(arrowstyle='->', lw=2, color=color_x))
     ax.text(xo+1.2, yo, 'X', color=color_x, fontweight='bold', va='center')
     ax.annotate('', xy=(xo, yo+1), xytext=(xo, yo), arrowprops=dict(arrowstyle='->', lw=2, color=color_z))
@@ -288,50 +254,37 @@ def generar_grafico():
     ax.text(xo+dx_y+0.2, yo+dy_y+0.1, 'Y', color=color_y, fontweight='bold', ha='left')
     ax.plot([xo], [yo], 'o', color='black', markersize=4)
 
-   # 2. COLUMNAS
     vs, vi = H + D_V/2, H - D_V/2
-    
-    # Definimos constantes de grosor para que NO dependan de ninguna otra variable
     GROSOR_EJE = 0.8
     GROSOR_ALMA_OCULTA = 0.6
-    COLOR_ALMA_GRIS = '#222222' # Un gris casi negro, muy serio
+    COLOR_ALMA_GRIS = '#222222' 
     
     for x in [0, L]:
-        # Contorno (Negro sólido)
         ax.plot([x-D_C/2, x-D_C/2], [0, vs], 'k', lw=lw_ext, zorder=1)
         ax.plot([x+D_C/2, x+D_C/2], [0, vs], 'k', lw=lw_ext, zorder=1)
         ax.plot([x-D_C/2, x+D_C/2], [0, 0], 'k', lw=lw_ext, zorder=1)
         ax.plot([x-D_C/2, x+D_C/2], [vs, vs], 'k', lw=lw_ext, zorder=1)
         
-        # EJE BARICÉNTRICO (Punto-línea negro absoluto)
-        # Agregamos snap=True para que la línea se "pegue" a los píxeles y no se vea borrosa
         ax.plot([x, x], [0, H], color='black', linestyle='-.', lw=GROSOR_EJE, zorder=4, snap=True)
         
         if o_col == 'FUERTE':
-            # Alma visible (Negra como el contorno)
             ax.plot([x-D_C/2+E_ALA_C, x-D_C/2+E_ALA_C], [0, vs], 'k', lw=lw_int, zorder=2)
             ax.plot([x+D_C/2-E_ALA_C, x+D_C/2-E_ALA_C], [0, vs], 'k', lw=lw_int, zorder=2)
         else:
-            # Alma oculta (Gris oscuro punteado)
             off = max(props_col['tw'] * esc, 0.04) * 2 
             ax.plot([x - off/2, x - off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
             ax.plot([x + off/2, x + off/2], [0, vs], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
 
-	# LLAMADA A LOS APOYOS (Asegurate que estas líneas estén acá)
         if T_APOYO == "Empotrado": 
             dibujar_apoyo_empotrado(ax, x, 0)
         else: 
             dibujar_apoyo_articulado(ax, x, 0)
         
-        # Sección de columna en planta
         dibujar_seccion_ipe(ax, x, -1.5, orientacion=o_col)
 
-    # 3. VIGA Y SECCIÓN LATERAL
-    # EJE VIGA
     ax.plot([0, L], [H, H], color='black', linestyle='-.', lw=GROSOR_EJE, zorder=4, snap=True)
     
     xfi, xfd = D_C/2, L - D_C/2
-    # Contorno Viga
     ax.plot([xfi, xfd], [vi, vi], 'k', lw=lw_ext, zorder=1)
     ax.plot([xfi, xfd], [vs, vs], 'k', lw=lw_ext, zorder=1)
     
@@ -339,25 +292,19 @@ def generar_grafico():
         ax.plot([xfi, xfd], [vi+E_ALA_V, vi+E_ALA_V], 'k', lw=lw_int, zorder=2)
         ax.plot([xfi, xfd], [vs-E_ALA_V, vs-E_ALA_V], 'k', lw=lw_int, zorder=2)
     else:
-        # Alma oculta Viga
         off_v = max(props_viga['tw'] * esc, 0.04) * 2
         ax.plot([xfi, xfd], [H - off_v/2, H - off_v/2], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
         ax.plot([xfi, xfd], [H + off_v/2, H + off_v/2], color=COLOR_ALMA_GRIS, linestyle='--', lw=GROSOR_ALMA_OCULTA, zorder=2)
 
-    # Dibujo del perfil de la viga a la derecha
     x_viga_sec = L + 1.8
-    ax.plot([xfd, x_viga_sec], [H, H], 'k-.', lw=0.8, alpha=0.4) # Línea de proyección
+    ax.plot([xfd, x_viga_sec], [H, H], 'k-.', lw=0.8, alpha=0.4) 
     dibujar_seccion_viga(ax, x_viga_sec, H, orientacion=o_viga)
 
-    # 3.5 CRUCES DE SAN ANDRÉS (Si el sistema es Arriostrado)
     if "Arriostrado" in SISTEMA:
-        # Usamos un azul técnico que resalta sobre el blanco sin ser chillón
         color_x = '#2E5A88' 
-        # Dibujamos las diagonales (X)
         ax.plot([0, L], [0, H], color=color_x, linestyle='--', lw=1.2, zorder=0, alpha=0.8)
         ax.plot([L, 0], [0, H], color=color_x, linestyle='--', lw=1.2, zorder=0, alpha=0.8)
 
-    # 4. RIOSTRAS Y COTAS
     pos = []
     if NUDOS: pos.append(H)
     dz = FRAC * H
@@ -378,32 +325,24 @@ def generar_grafico():
             ax.annotate('', xy=(xc, yp), xytext=(xc, y_p), arrowprops=dict(arrowstyle='<->', lw=0.8))
             
             if abs(dist - dz) < 0.05:
-                # --- NUEVA LÓGICA DE TEXTO ---
                 texto_h = ""
-                # Probamos si es una fracción común
                 if abs(FRAC - 1/2) < 0.001: texto_h = "H/2"
                 elif abs(FRAC - 1/3) < 0.001: texto_h = "H/3"
                 elif abs(FRAC - 1/4) < 0.001: texto_h = "H/4"
                 elif abs(FRAC - 1/5) < 0.001: texto_h = "H/5"
                 else: 
-                    # Si no es ninguna, ponemos el decimal exacto del slider
                     texto_h = f"{FRAC:.2f} H"
                 
-                # Fracción o Decimal a la izquierda
                 ax.text(xc - 0.1, y_mid, texto_h, rotation=90, va='center', ha='right', fontsize=9, color='#0066CC', fontweight='bold')
-                # Metros a la derecha
                 ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=9)
             else:
-                # Tramos sobrantes
                 ax.text(xc + 0.1, y_mid, f"{dist:.2f}m", rotation=90, va='center', ha='left', fontsize=9)
         y_p = yp
 
     dibujar_cotas(ax, 0, 0, 0, H, f'H={H:.2f}m', 1.2, 'vertical')
     dibujar_cotas(ax, 0, H, L, H, f'L={L:.2f}m', 1.0, 'horizontal')
 
-    # INFO
     texto_nudos = "Sí" if NUDOS else "No"
-    # Simplificamos el nombre para el cuadro resumen
     tipo_portico_txt = "Arriostrado" if "Arriostrado" in SISTEMA else "No arriostrado"
     
     info = (
@@ -415,10 +354,31 @@ def generar_grafico():
         f"Arriostramientos intermedios: {int(CANT)}"
     )
 
-    
-    # Esta línea la dejás como la tenías, asegurándote que imprima la variable 'info'
     ax.text(L+1.5, 0, info, bbox=dict(boxstyle='round', fc='white', ec='black'), family='monospace', fontsize=10, va='bottom')
    
     st.pyplot(fig, use_container_width=True)
+    
+    return G_sup, G_inf
 
-generar_grafico()
+# ============================================================================
+# RENDERIZADO DE PESTAÑAS (TABS)
+# ============================================================================
+pestana_1, pestana_2 = st.tabs(["📐 Definición Geométrica", "🧮 Cálculo de Esbelteces"])
+
+with pestana_1:
+    G_sup, G_inf = generar_grafico()
+
+with pestana_2:
+    st.header("Resultados del Análisis de Rigidez")
+    
+    if G_sup is not None:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.info(f"**Nudo Superior ($G_A$)**\n\nValor: {G_sup:.3f}")
+        with col2:
+            st.info(f"**Nudo Inferior ($G_B$)**\n\nValor: {G_inf:.3f}")
+            
+        st.markdown("---")
+        st.markdown("*(Acá próximamente vamos a programar el cálculo de K y las esbelteces $\lambda$)*")
+    else:
+        st.warning("Faltan datos de inercia para calcular los coeficientes de rigidez.")
