@@ -358,7 +358,7 @@ with pestana_2:
             # 2. Fórmula Adaptada a la Selección
             eje_c = "x" if o_col == "FUERTE" else "y"
             eje_v = "x" if o_viga == "FUERTE" else "y"
-            st.latex(rf"G_A = \frac{{I_{eje_c(col)} / H}}{{I_{eje_v(viga)} / L}}")
+           st.latex(rf"G_A = \frac{{ I_{{ {eje_c}(col) }} / H }}{{ I_{{ {eje_v}(viga) }} / L }}")
             
             # 3. Reemplazo Numérico
             st.latex(rf"G_A = \frac{{{I_c:.1f} \text{{ cm}}^4 / {H*100:.0f} \text{{ cm}}}}{{{I_v:.1f} \text{{ cm}}^4 / {L*100:.0f} \text{{ cm}}}}")
