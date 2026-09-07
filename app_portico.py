@@ -9,7 +9,6 @@ import pandas as pd
 # ============================================================================
 st.set_page_config(page_title="Generador de Pórticos - UNLP", layout="wide")
 
-# CSS Corregido: SOLO afecta a los botones de las pestañas
 st.markdown("""
 <style>
     .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
@@ -59,14 +58,24 @@ def obtener_propiedades_perfil(nombre_perfil):
             'Ix': buscar_metrica('ix'),
             'Iy': buscar_metrica('iy'),
             'rX': buscar_metrica('rx'), 
-            'rY': buscar_metrica('ry')  
+            'rY': buscar_metrica('ry'),
+            'A': buscar_metrica('a'),     # cm2
+            'J': buscar_metrica('j'),     # cm4
+            'Cw': buscar_metrica('cw')    # cm6
         }
         
+        # Rescate si el catálogo no tiene J o Cw calculados
+        if props['J'] == 0:
+            props['J'] = (1/3) * (2 * (props['bf']*100) * (props['tf']*100)**3 + ((props['d']*100) - 2*(props['tf']*100)) * (props['tw']*100)**3)
+        if props['Cw'] == 0:
+            h0_cm = (props['d'] - props['tf']) * 100
+            props['Cw'] = (props['Iy'] * h0_cm**2) / 4.0
+
         if props['d'] == 0:
-            return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0, 'rX': 0, 'rY': 0}
+            return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0, 'rX': 0, 'rY': 0, 'A': 0, 'J': 0, 'Cw': 0}
         return props
     except Exception:
-        return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0, 'rX': 0, 'rY': 0}
+        return {'d': 0.40, 'bf': 0.20, 'tw': 0.01, 'tf': 0.015, 'Ix': 0, 'Iy': 0, 'rX': 0, 'rY': 0, 'A': 0, 'J': 0, 'Cw': 0}
 
 # ============================================================================
 # FUNCIONES DE DIBUJO 3D (Pórtico Global)
@@ -116,9 +125,9 @@ def dibujar_seccion_ipe(ax, x, y, orientacion='FUERTE', escala=0.45):
     
     cx, cy = '#CC0000', '#008000'
     ax.annotate('', xy=(x + (w/2 + 0.3), y), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=cx, lw=1.2))
-    ax.text(x + (w/2 + 0.4), y - 0.1, 'x', fontsize=9, color=cx, fontweight='bold')
+    ax.text(x + (w/2 + 0.4), y - 0.1, 'X', fontsize=9, color=cx, fontweight='bold')
     ax.annotate('', xy=(x, y + (h/2 + 0.3)), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=cy, lw=1.2))
-    ax.text(x - 0.15, y + (h/2 + 0.4), 'y', fontsize=9, color=cy, fontweight='bold')
+    ax.text(x - 0.15, y + (h/2 + 0.4), 'Y', fontsize=9, color=cy, fontweight='bold')
 
 def dibujar_seccion_viga(ax, x, y, orientacion='FUERTE', escala=0.45):
     w, h = (1.0 * escala) * 1.5, (0.65 * escala) * 2.0
@@ -136,9 +145,9 @@ def dibujar_seccion_viga(ax, x, y, orientacion='FUERTE', escala=0.45):
     dim_y = w/2 if orientacion == 'FUERTE' else h/2
     dim_z = h/2 if orientacion == 'FUERTE' else w/2
     ax.annotate('', xy=(x + dim_y + 0.3, y), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=cy, lw=1.2))
-    ax.text(x + dim_y + 0.4, y - 0.1, 'y', fontsize=9, color=cy, fontweight='bold')
+    ax.text(x + dim_y + 0.4, y - 0.1, 'Y', fontsize=9, color=cy, fontweight='bold')
     ax.annotate('', xy=(x, y + dim_z + 0.3), xytext=(x, y), arrowprops=dict(arrowstyle='->', color=cz, lw=1.2))
-    ax.text(x - 0.15, y + dim_z + 0.4, 'z', fontsize=9, color=cz, fontweight='bold')
+    ax.text(x - 0.15, y + dim_z + 0.4, 'Z', fontsize=9, color=cz, fontweight='bold')
 
 def dibujar_cotas(ax, x1, y1, x2, y2, texto, offset=0.8, orientacion='horizontal'):
     if orientacion == 'horizontal':
@@ -149,10 +158,10 @@ def dibujar_cotas(ax, x1, y1, x2, y2, texto, offset=0.8, orientacion='horizontal
         ax.text(x1 - offset - 0.3, (y1 + y2) / 2, texto, ha='right', va='center', fontsize=10, fontweight='bold', rotation=90)
 
 # ============================================================================
-# FUNCIONES DE DIBUJO 2D (Cortes Didácticos a Escala Real - CORREGIDO)
+# FUNCIONES DE DIBUJO 2D (Cortes Didácticos a Escala Real)
 # ============================================================================
 def graficar_corte_cinematico_real(orientacion, eje_rotacion, d, bf, tw, tf):
-    """Dibuja el perfil con sus medidas reales y orientación cinemática correcta"""
+    """Dibuja el perfil real y el vector ROTACIÓN limpio de ejes locales"""
     fig, ax = plt.subplots(figsize=(3, 3), dpi=100)
     ax.set_aspect('equal')
     ax.axis('off')
@@ -161,45 +170,24 @@ def graficar_corte_cinematico_real(orientacion, eje_rotacion, d, bf, tw, tf):
     ax.set_xlim(-limite, limite)
     ax.set_ylim(-limite, limite)
 
-    # Ejes Globales (Cruz central punteada)
+    # Ejes Globales 
     ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
     ax.axvline(0, color='gray', linestyle='--', linewidth=0.8)
     ax.text(limite*0.85, 0.05*limite, 'X', color='gray', fontsize=10, fontweight='bold')
     ax.text(0.05*limite, limite*0.85, 'Y', color='gray', fontsize=10, fontweight='bold')
 
-    # Lógica de dibujo corregida
     if orientacion == 'FUERTE':
-        # Eje fuerte resiste el momento en el plano (rotación s/ Y).
-        # Por lo tanto, el eje local 'x' (fuerte) debe alinearse con 'Y' global.
-        # En AISC, el eje 'x' es perpendicular al alma.
-        # Entonces, el alma debe ser paralela al eje global 'X' (horizontal).
-        w, h = d, bf # El peralte 'd' va a lo ancho, 'bf' va a lo alto
-        
-        # Alma horizontal
+        w, h = d, bf 
         ax.add_patch(patches.Rectangle((-w/2 + tf, -tw/2), w - 2*tf, tw, facecolor='#A0A0A0', edgecolor='black'))
-        # Alas verticales
         ax.add_patch(patches.Rectangle((w/2 - tf, -h/2), tf, h, facecolor='#606060', edgecolor='black'))
         ax.add_patch(patches.Rectangle((-w/2, -h/2), tf, h, facecolor='#606060', edgecolor='black'))
-        
-        # Eje local 'x' (fuerte) es vertical. Eje local 'y' (débil) es horizontal.
-        ax.text(limite*0.1, limite*0.7, 'x', color='#606060', fontsize=12, fontstyle='italic')
-        ax.text(limite*0.7, limite*0.1, 'y', color='#606060', fontsize=12, fontstyle='italic')
     else:
-        # Eje débil resiste el momento. Alma vertical.
         w, h = bf, d
-        
-        # Alma vertical
         ax.add_patch(patches.Rectangle((-tw/2, -h/2 + tf), tw, h - 2*tf, facecolor='#A0A0A0', edgecolor='black'))
-        # Alas horizontales
         ax.add_patch(patches.Rectangle((-w/2, h/2 - tf), w, tf, facecolor='#606060', edgecolor='black'))
         ax.add_patch(patches.Rectangle((-w/2, -h/2), w, tf, facecolor='#606060', edgecolor='black'))
-        
-        # Eje local 'x' (fuerte) es horizontal. Eje local 'y' (débil) es vertical.
-        ax.text(limite*0.7, limite*0.1, 'x', color='#606060', fontsize=12, fontstyle='italic')
-        ax.text(limite*0.1, limite*0.7, 'y', color='#606060', fontsize=12, fontstyle='italic')
 
-    # DIBUJO DEL VECTOR MOMENTO
-    def dibujar_vector_momento(x0, y0, dx, dy, color, label):
+    def dibujar_vector_rotacion(x0, y0, dx, dy, color, label):
         ax.plot([x0, x0+dx], [y0, y0+dy], color=color, lw=2.5)
         ax.annotate('', xy=(x0+dx, y0+dy), xytext=(x0+dx-dx*0.01, y0+dy-dy*0.01),
                     arrowprops=dict(arrowstyle="->", lw=2.5, color=color, mutation_scale=20))
@@ -211,9 +199,9 @@ def graficar_corte_cinematico_real(orientacion, eje_rotacion, d, bf, tw, tf):
         ax.text(x0+dx + ux*limite*0.1 - uy*limite*0.2, y0+dy + uy*limite*0.1 + ux*limite*0.2, label, color=color, fontsize=14, fontweight='bold', ha='center')
 
     if eje_rotacion == 'Y':
-        dibujar_vector_momento(0, -limite*0.7, 0, limite*1.4, '#CC0000', '$M_Y$')
+        dibujar_vector_rotacion(0, -limite*0.7, 0, limite*1.4, '#CC0000', r'$\theta_Y$')
     else:
-        dibujar_vector_momento(-limite*0.7, 0, limite*1.4, 0, '#0066CC', '$M_X$')
+        dibujar_vector_rotacion(-limite*0.7, 0, limite*1.4, 0, '#0066CC', r'$\theta_X$')
 
     return fig
 
@@ -221,11 +209,31 @@ def graficar_corte_cinematico_real(orientacion, eje_rotacion, d, bf, tw, tf):
 # INTERFAZ SIDEBAR
 # ============================================================================
 st.sidebar.header("⚙️ Parámetros")
-st.sidebar.markdown("### 1) Definición geométrica")
+st.sidebar.markdown("### 1) Materiales (Acero)")
+
+region_acero = st.sidebar.selectbox("Norma / Región", ["Argentina (IRAM-IAS / CIRSOC)", "Americana (ASTM)", "Personalizado"])
+
+if region_acero == "Argentina (IRAM-IAS / CIRSOC)":
+    tipo_acero = st.sidebar.selectbox("Calidad", ["F-24 (Fy=235 MPa)", "F-26 (Fy=250 MPa)", "F-36 (Fy=355 MPa)"])
+    if "F-24" in tipo_acero: Fy, Fu = 235, 370
+    elif "F-26" in tipo_acero: Fy, Fu = 250, 400
+    else: Fy, Fu = 355, 510
+    E_acero = 200000
+elif region_acero == "Americana (ASTM)":
+    tipo_acero = st.sidebar.selectbox("Calidad", ["A36 (Fy=250 MPa)", "A572 Gr. 50 (Fy=345 MPa)", "A992 (Fy=345 MPa)"])
+    if "A36" in tipo_acero: Fy, Fu = 250, 400
+    else: Fy, Fu = 345, 450
+    E_acero = 200000
+else:
+    Fy = st.sidebar.number_input("Fluencia Fy (MPa)", value=250)
+    Fu = st.sidebar.number_input("Rotura Fu (MPa)", value=400)
+    E_acero = st.sidebar.number_input("Módulo E (MPa)", value=200000)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 2) Definición geométrica")
 
 H = st.sidebar.number_input("Altura (H) [m]", value=5.5)
 L = st.sidebar.number_input("Longitud (L) [m]", value=7.0)
-
 SISTEMA = st.sidebar.radio("Sistema Lateral", ["No arriostrado (Translacional)", "Arriostrado (Intranslacional)"])
 
 todas_las_series = df_perfiles.iloc[:, 0].dropna().unique().tolist()
@@ -254,7 +262,7 @@ with st.sidebar.expander("Arriostramientos"):
 T_APOYO = st.sidebar.selectbox("Apoyo Inferior", ["Empotrado", "Articulado"])
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 2) Criterios de Cálculo")
+st.sidebar.markdown("### 3) Criterios de Cálculo")
 CRITERIO = st.sidebar.radio("Condiciones de Borde", ["Sugeridos (AISC/CIRSOC)", "Teóricos Ideales"])
 
 # ============================================================================
@@ -269,6 +277,7 @@ def generar_datos_y_grafico():
     E_ALA_C = max(props_col['tf'] * (0.8/0.40), 0.06)
     E_ALA_V = max(props_viga['tf'] * (0.8/0.40), 0.06)
     
+    # --- CÁLCULOS ESTÁTICOS ---
     I_c_plano = props_col['Ix'] if o_col == 'FUERTE' else props_col['Iy']
     I_v_plano = props_viga['Ix'] if o_viga == 'FUERTE' else props_viga['Iy']
     
@@ -286,6 +295,7 @@ def generar_datos_y_grafico():
         G_Y_inf = 1000.0 if CRITERIO == "Teóricos Ideales" else 10.0
         K_X_fuera = 1.00 
 
+    # --- DIBUJO ---
     fig, ax = plt.subplots(figsize=(12, 9), dpi=300) 
     ax.set_aspect('equal')
     ax.axis('off')
@@ -370,7 +380,7 @@ def generar_datos_y_grafico():
 # ============================================================================
 # RENDERIZADO DE PESTAÑAS (TABS)
 # ============================================================================
-pestana_1, pestana_2 = st.tabs(["📐 Definición Geométrica", "🧮 Cálculo de Esbelteces"])
+pestana_1, pestana_2, pestana_3 = st.tabs(["📐 Geometría", "🧮 Esbelteces", "🛡️ Resistencia de Diseño"])
 
 fig_portico, G_Y_sup, G_Y_inf, I_c_plano, I_v_plano, r_plano, r_fuera, K_X_fuera, props_col = generar_datos_y_grafico()
 
@@ -394,7 +404,7 @@ with pestana_2:
         col_img1, col_calc1 = st.columns([1, 2.5])
         
         with col_img1:
-            st.markdown("**Eje de pandeo plano del pórtico ($M_Y$)**")
+            st.markdown("**Eje de pandeo plano del pórtico**")
             fig_corte_y = graficar_corte_cinematico_real(o_col, 'Y', props_col['d'], props_col['bf'], props_col['tw'], props_col['tf'])
             st.pyplot(fig_corte_y, use_container_width=True)
             
@@ -402,9 +412,8 @@ with pestana_2:
             st.markdown("**1.1 Cálculo de rigideces relativas ($G_Y$)**")
             st.latex(r"G_Y = \frac{\sum (I_{col} / L_{col})}{\sum (I_{viga} / L_{viga})}")
             st.latex(rf"G_{{Y(sup)}} = \frac{{ I_{{\text{{{lbl_c_plano}(col)}}}} / H }}{{ I_{{\text{{{lbl_v_plano}(viga)}}}} / L }}")
-            st.latex(rf"G_{{Y(sup)}} = \frac{{{I_c_plano:.1f} \text{{ cm}}^4 / {H*100:.0f} \text{{ cm}}}}{{{I_v_plano:.1f} \text{{ cm}}^4 / {L*100:.0f} \text{{ cm}}}} = {G_Y_sup:.3f}")
-            
-            # G_B ahora renderizado en LaTeX para que quede visualmente igual a G_A
+            st.latex(rf"G_{{Y(sup)}} = \frac{{{I_c_plano:.1f} \text{{ cm}}^4 / {H*100:.0f} \text{{ cm}}}}{{{I_v_plano:.1f} \text{{ cm}}^4 / {L*100:.0f} \text{{ cm}}}}")
+            st.latex(rf"G_{{Y(sup)}} = {G_Y_sup:.3f}")
             st.latex(rf"G_{{Y(inf)}} = {G_Y_inf:.2f} \quad \text{{(Apoyo {T_APOYO})}}")
 
             st.write("")
@@ -421,7 +430,8 @@ with pestana_2:
             st.markdown("**1.3 Verificación de Esbelteces ($\lambda_Y$)**")
             lambda_Y = (K_Y * (H*100)) / r_plano
             st.latex(rf"\lambda_Y = \frac{{K_Y \cdot L_{{col}}}}{{r_{{\text{{{lbl_c_plano}(col)}}}}}}")
-            st.latex(rf"\lambda_Y = \frac{{{K_Y:.2f} \cdot {H*100:.0f} \text{{ cm}}}}{{{r_plano:.2f} \text{{ cm}}}} = {lambda_Y:.1f}")
+            st.latex(rf"\lambda_Y = \frac{{{K_Y:.2f} \cdot {H*100:.0f} \text{{ cm}}}}{{{r_plano:.2f} \text{{ cm}}}}")
+            st.latex(rf"\lambda_Y = {lambda_Y:.1f}")
             if lambda_Y <= 200: st.success("✅ Cumple límite de compresión ($\lambda \le 200$)")
             else: st.error("❌ Supera límite de compresión ($\lambda > 200$)")
 
@@ -433,7 +443,7 @@ with pestana_2:
         col_img2, col_calc2 = st.columns([1, 2.5])
         
         with col_img2:
-            st.markdown("**Eje de pandeo plano perpendicular al pórtico ($M_X$)**")
+            st.markdown("**Eje de pandeo plano perpendicular al pórtico**")
             fig_corte_x = graficar_corte_cinematico_real(o_col, 'X', props_col['d'], props_col['bf'], props_col['tw'], props_col['tf'])
             st.pyplot(fig_corte_x, use_container_width=True)
             
@@ -448,6 +458,112 @@ with pestana_2:
             L_tramo_y = (FRAC * H) * 100
             lambda_X = (K_X_fuera * L_tramo_y) / r_fuera
             st.latex(rf"\lambda_X = \frac{{K_X \cdot L_{{tramo}}}}{{r_{{\text{{{lbl_c_fuera}(col)}}}}}}")
-            st.latex(rf"\lambda_X = \frac{{{K_X_fuera:.2f} \cdot {L_tramo_y:.0f} \text{{ cm}}}}{{{r_fuera:.2f} \text{{ cm}}}} = {lambda_X:.1f}")
+            st.latex(rf"\lambda_X = \frac{{{K_X_fuera:.2f} \cdot {L_tramo_y:.0f} \text{{ cm}}}}{{{r_fuera:.2f} \text{{ cm}}}}")
+            st.latex(rf"\lambda_X = {lambda_X:.1f}")
             if lambda_X <= 200: st.success("✅ Cumple límite de compresión ($\lambda \le 200$)")
             else: st.error("❌ Supera límite de compresión ($\lambda > 200$)")
+
+with pestana_3:
+    st.write("<br>", unsafe_allow_html=True)
+    if G_Y_sup is None or r_plano == 0:
+        st.warning("⚠️ Calcula primero las esbelteces en la pestaña anterior.")
+    else:
+        st.subheader("3. Resistencia de Diseño a Compresión ($P_d$)")
+        
+        CW_CRITERIO = st.radio("Cálculo de Constante de Alabeo ($C_w$)", ["Teórico Simplificado (Doble T)", "Exacto (Catálogo AISC)"], horizontal=True)
+        st.markdown("---")
+
+        col_mat, col_local = st.columns(2)
+        
+        with col_mat:
+            st.markdown("**3.1 Propiedades del Material**")
+            st.info(f"**Acero:** {tipo_acero if 'tipo_acero' in locals() else 'Personalizado'}")
+            st.latex(rf"F_y = {Fy} \text{{ MPa}}")
+            st.latex(rf"E = {E_acero} \text{{ MPa}}")
+        
+        with col_local:
+            st.markdown("**3.2 Clasificación de la Sección (Esbeltez Local)**")
+            
+            bf_cm, tf_cm, tw_cm, d_cm = props_col['bf']*100, props_col['tf']*100, props_col['tw']*100, props_col['d']*100
+            
+            # Alas
+            lambda_f = bf_cm / (2 * tf_cm)
+            lambda_rf = 0.56 * np.sqrt(E_acero / Fy)
+            st.latex(rf"\lambda_f = \frac{{b_f}}{{2 t_f}} = {lambda_f:.2f} \quad \text{{Límite: }} {lambda_rf:.2f}")
+            if lambda_f <= lambda_rf: st.success("Alas: Elementos No Esbeltos ✅")
+            else: st.error("Alas: Elementos Esbeltos ❌")
+            
+            # Alma
+            hw_cm = d_cm - 2*tf_cm
+            lambda_w = hw_cm / tw_cm
+            lambda_rw = 1.49 * np.sqrt(E_acero / Fy)
+            st.latex(rf"\lambda_w = \frac{{h_w}}{{t_w}} = {lambda_w:.2f} \quad \text{{Límite: }} {lambda_rw:.2f}")
+            if lambda_w <= lambda_rw: st.success("Alma: Elemento No Esbelto ✅")
+            else: st.error("Alma: Elemento Esbelto ❌")
+
+        st.markdown("---")
+        
+        col_Fe, col_Fcr = st.columns(2)
+        
+        with col_Fe:
+            st.markdown("**3.3 Tensiones Elásticas de Pandeo ($F_e$)**")
+            
+            # 1. Pandeo Flexional
+            st.markdown("*a) Pandeo Flexional*")
+            lambda_max = max(lambda_X, lambda_Y)
+            Fe_flex = (np.pi**2 * E_acero) / (lambda_max**2)
+            st.latex(rf"F_{{e(\text{{flex}})}} = \frac{{\pi^2 E}}{{\lambda_{{max}}^2}} = {Fe_flex:.1f} \text{{ MPa}}")
+            
+            # 2. Pandeo Torsional
+            st.markdown("*b) Pandeo Torsional*")
+            G_acero = E_acero / (2 * (1 + 0.3)) # Módulo de corte (Nu=0.3)
+            
+            Ix_cm4, Iy_cm4, J_cm4 = props_col['Ix'], props_col['Iy'], props_col['J']
+            
+            if CW_CRITERIO == "Exacto (Catálogo AISC)":
+                Cw_cm6 = props_col['Cw']
+                st.caption(f"Valor extraído de catálogo: $C_w = {Cw_cm6:.1f} \\text{{ cm}}^6$")
+            else:
+                h0_cm = d_cm - tf_cm
+                Cw_cm6 = (Iy_cm4 * (h0_cm)**2) / 4.0
+                st.latex(rf"C_w \approx \frac{{I_y \cdot h_0^2}}{{4}} = {Cw_cm6:.1f} \text{{ cm}}^6")
+            
+            # Cálculo Torsional (Cuidado con las unidades: todo en cm y kN, luego a MPa)
+            # E_acero (MPa) = E_acero/10 (kN/cm2). G_acero (MPa) = G_acero/10 (kN/cm2)
+            E_cm = E_acero / 10
+            G_cm = G_acero / 10
+            Lz_cm = L_tramo_y
+            Kz_Lz = K_X_fuera * Lz_cm
+            
+            Fe_tors_cm = (((np.pi**2 * E_cm * Cw_cm6) / (Kz_Lz**2)) + (G_cm * J_cm4)) / (Ix_cm4 + Iy_cm4)
+            Fe_tors = Fe_tors_cm * 10 # Pasamos de kN/cm2 a MPa
+            
+            st.latex(rf"F_{{e(\text{{tors}})}} = \left[ \frac{{\pi^2 E C_w}}{{(K_z L_z)^2}} + G J \right] \frac{{1}}{{I_x + I_y}}")
+            st.latex(rf"F_{{e(\text{{tors}})}} = {Fe_tors:.1f} \text{{ MPa}}")
+
+        with col_Fcr:
+            st.markdown("**3.4 Tensión Crítica ($F_{cr}$)**")
+            Fe = min(Fe_flex, Fe_tors)
+            relacion = Fy / Fe
+            
+            st.info(f"**Gobernante:** $F_e = {Fe:.1f}$ MPa")
+            st.latex(rf"\frac{{F_y}}{{F_e}} = \frac{{{Fy}}}{{{Fe:.1f}}} = {relacion:.2f}")
+            
+            if relacion <= 2.25:
+                Fcr = (0.658 ** relacion) * Fy
+                st.caption("Pandeo Inelástico ($F_y / F_e \le 2.25$)")
+                st.latex(rf"F_{{cr}} = \left( 0.658^{{F_y/F_e}} \right) F_y = {Fcr:.1f} \text{{ MPa}}")
+            else:
+                Fcr = 0.877 * Fe
+                st.caption("Pandeo Elástico ($F_y / F_e > 2.25$)")
+                st.latex(rf"F_{{cr}} = 0.877 F_e = {Fcr:.1f} \text{{ MPa}}")
+
+            st.markdown("---")
+            st.markdown("**3.5 Resistencia de Diseño ($P_d$)**")
+            Ag = props_col['A']
+            # Pn (kN) = Fcr (MPa = N/mm2) * Ag (cm2) * 10 / 100 --> (N/mm2 * mm2) / 1000 = kN. 1 cm2 = 100 mm2. Por ende, factor = 1/10
+            Pn_kN = (Fcr * Ag) / 10
+            Pd_kN = 0.90 * Pn_kN
+            
+            st.latex(rf"P_n = F_{{cr}} \cdot A_g = {Pn_kN:.1f} \text{{ kN}}")
+            st.success(f"### $P_d = \phi_c \cdot P_n = {Pd_kN:.1f} \text{{ kN}}$")
