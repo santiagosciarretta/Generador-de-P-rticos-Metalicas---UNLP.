@@ -9,20 +9,13 @@ import pandas as pd
 # ============================================================================
 st.set_page_config(page_title="Generador de Pórticos - UNLP", layout="wide")
 
-# CSS Súper Agresivo para forzar el tamaño de las pestañas
+# CSS Corregido: SOLO afecta a los botones de las pestañas
 st.markdown("""
 <style>
-    div[data-testid="stTabs"] button p,
-    div[data-baseweb="tab"] p,
-    .stTabs button p,
-    .stTabs [data-testid="stMarkdownContainer"] p {
+    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
         font-size: 1.5rem !important;
         font-weight: 700 !important;
         color: #2E5A88 !important;
-    }
-    div[data-testid="stTabs"] button {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -156,15 +149,14 @@ def dibujar_cotas(ax, x1, y1, x2, y2, texto, offset=0.8, orientacion='horizontal
         ax.text(x1 - offset - 0.3, (y1 + y2) / 2, texto, ha='right', va='center', fontsize=10, fontweight='bold', rotation=90)
 
 # ============================================================================
-# FUNCIONES DE DIBUJO 2D (Cortes Didácticos a Escala Real)
+# FUNCIONES DE DIBUJO 2D (Cortes Didácticos a Escala Real - CORREGIDO)
 # ============================================================================
 def graficar_corte_cinematico_real(orientacion, eje_rotacion, d, bf, tw, tf):
-    """Dibuja el perfil con sus medidas reales leídas del Excel"""
+    """Dibuja el perfil con sus medidas reales y orientación cinemática correcta"""
     fig, ax = plt.subplots(figsize=(3, 3), dpi=100)
     ax.set_aspect('equal')
     ax.axis('off')
     
-    # Calcular límites dinámicos para que cualquier perfil entre perfecto en el cuadro
     limite = max(d, bf) * 0.75 
     ax.set_xlim(-limite, limite)
     ax.set_ylim(-limite, limite)
@@ -175,40 +167,49 @@ def graficar_corte_cinematico_real(orientacion, eje_rotacion, d, bf, tw, tf):
     ax.text(limite*0.85, 0.05*limite, 'X', color='gray', fontsize=10, fontweight='bold')
     ax.text(0.05*limite, limite*0.85, 'Y', color='gray', fontsize=10, fontweight='bold')
 
+    # Lógica de dibujo corregida
     if orientacion == 'FUERTE':
-        w, h = bf, d
-        # Alma vertical
-        ax.add_patch(patches.Rectangle((-tw/2, -h/2 + tf), tw, h - 2*tf, facecolor='#A0A0A0', edgecolor='black'))
-        # Alas horizontales
-        ax.add_patch(patches.Rectangle((-w/2, h/2 - tf), w, tf, facecolor='#606060', edgecolor='black'))
-        ax.add_patch(patches.Rectangle((-w/2, -h/2), w, tf, facecolor='#606060', edgecolor='black'))
-        # Textos de ejes locales limpios
-        ax.text(tw/2 + limite*0.05, -h/2 - limite*0.15, 'y', color='#606060', fontsize=11, fontstyle='italic')
-        ax.text(-w/2 - limite*0.15, tw/2 + limite*0.05, 'x', color='#606060', fontsize=11, fontstyle='italic')
-    else:
-        w, h = d, bf
+        # Eje fuerte resiste el momento en el plano (rotación s/ Y).
+        # Por lo tanto, el eje local 'x' (fuerte) debe alinearse con 'Y' global.
+        # En AISC, el eje 'x' es perpendicular al alma.
+        # Entonces, el alma debe ser paralela al eje global 'X' (horizontal).
+        w, h = d, bf # El peralte 'd' va a lo ancho, 'bf' va a lo alto
+        
         # Alma horizontal
         ax.add_patch(patches.Rectangle((-w/2 + tf, -tw/2), w - 2*tf, tw, facecolor='#A0A0A0', edgecolor='black'))
         # Alas verticales
         ax.add_patch(patches.Rectangle((w/2 - tf, -h/2), tf, h, facecolor='#606060', edgecolor='black'))
         ax.add_patch(patches.Rectangle((-w/2, -h/2), tf, h, facecolor='#606060', edgecolor='black'))
-        # Textos de ejes locales limpios
-        ax.text(tw/2 + limite*0.05, -h/2 - limite*0.15, 'x', color='#606060', fontsize=11, fontstyle='italic')
-        ax.text(-w/2 - limite*0.15, tw/2 + limite*0.05, 'y', color='#606060', fontsize=11, fontstyle='italic')
+        
+        # Eje local 'x' (fuerte) es vertical. Eje local 'y' (débil) es horizontal.
+        ax.text(limite*0.1, limite*0.7, 'x', color='#606060', fontsize=12, fontstyle='italic')
+        ax.text(limite*0.7, limite*0.1, 'y', color='#606060', fontsize=12, fontstyle='italic')
+    else:
+        # Eje débil resiste el momento. Alma vertical.
+        w, h = bf, d
+        
+        # Alma vertical
+        ax.add_patch(patches.Rectangle((-tw/2, -h/2 + tf), tw, h - 2*tf, facecolor='#A0A0A0', edgecolor='black'))
+        # Alas horizontales
+        ax.add_patch(patches.Rectangle((-w/2, h/2 - tf), w, tf, facecolor='#606060', edgecolor='black'))
+        ax.add_patch(patches.Rectangle((-w/2, -h/2), w, tf, facecolor='#606060', edgecolor='black'))
+        
+        # Eje local 'x' (fuerte) es horizontal. Eje local 'y' (débil) es vertical.
+        ax.text(limite*0.7, limite*0.1, 'x', color='#606060', fontsize=12, fontstyle='italic')
+        ax.text(limite*0.1, limite*0.7, 'y', color='#606060', fontsize=12, fontstyle='italic')
 
-    # DIBUJO DEL VECTOR MOMENTO (Escalado dinámicamente)
+    # DIBUJO DEL VECTOR MOMENTO
     def dibujar_vector_momento(x0, y0, dx, dy, color, label):
         ax.plot([x0, x0+dx], [y0, y0+dy], color=color, lw=2.5)
         ax.annotate('', xy=(x0+dx, y0+dy), xytext=(x0+dx-dx*0.01, y0+dy-dy*0.01),
                     arrowprops=dict(arrowstyle="->", lw=2.5, color=color, mutation_scale=20))
-        offset = limite * 0.12 # Distancia entre puntas de flecha escalada
+        offset = limite * 0.12 
         L = np.hypot(dx, dy)
         ux, uy = dx/L, dy/L
         ax.annotate('', xy=(x0+dx - ux*offset, y0+dy - uy*offset), xytext=(x0+dx - ux*(offset+0.01), y0+dy - uy*(offset+0.01)),
                     arrowprops=dict(arrowstyle="->", lw=2.5, color=color, mutation_scale=20))
         ax.text(x0+dx + ux*limite*0.1 - uy*limite*0.2, y0+dy + uy*limite*0.1 + ux*limite*0.2, label, color=color, fontsize=14, fontweight='bold', ha='center')
 
-    # Lógica de dibujo del vector
     if eje_rotacion == 'Y':
         dibujar_vector_momento(0, -limite*0.7, 0, limite*1.4, '#CC0000', '$M_Y$')
     else:
@@ -268,7 +269,6 @@ def generar_datos_y_grafico():
     E_ALA_C = max(props_col['tf'] * (0.8/0.40), 0.06)
     E_ALA_V = max(props_viga['tf'] * (0.8/0.40), 0.06)
     
-    # --- CÁLCULOS ESTÁTICOS ---
     I_c_plano = props_col['Ix'] if o_col == 'FUERTE' else props_col['Iy']
     I_v_plano = props_viga['Ix'] if o_viga == 'FUERTE' else props_viga['Iy']
     
@@ -286,7 +286,6 @@ def generar_datos_y_grafico():
         G_Y_inf = 1000.0 if CRITERIO == "Teóricos Ideales" else 10.0
         K_X_fuera = 1.00 
 
-    # --- DIBUJO ---
     fig, ax = plt.subplots(figsize=(12, 9), dpi=300) 
     ax.set_aspect('equal')
     ax.axis('off')
@@ -379,7 +378,6 @@ with pestana_1:
     st.pyplot(fig_portico, use_container_width=True)
 
 with pestana_2:
-    # Espaciado extra para separar de la pestaña
     st.write("<br>", unsafe_allow_html=True)
     
     if G_Y_sup is None or r_plano == 0:
@@ -390,7 +388,6 @@ with pestana_2:
         lbl_c_fuera = "débil" if o_col == "FUERTE" else "fuerte"
 
         # --- SECCIÓN 1: PLANO DEL PÓRTICO ---
-        # Título más chico (subheader)
         st.subheader("1. Esbeltez en el plano del pórtico (Rotación s/ Eje Y Global)")
         st.markdown("---")
         
@@ -402,12 +399,13 @@ with pestana_2:
             st.pyplot(fig_corte_y, use_container_width=True)
             
         with col_calc1:
-            # Sub-secciones en negrita simple
             st.markdown("**1.1 Cálculo de rigideces relativas ($G_Y$)**")
             st.latex(r"G_Y = \frac{\sum (I_{col} / L_{col})}{\sum (I_{viga} / L_{viga})}")
             st.latex(rf"G_{{Y(sup)}} = \frac{{ I_{{\text{{{lbl_c_plano}(col)}}}} / H }}{{ I_{{\text{{{lbl_v_plano}(viga)}}}} / L }}")
             st.latex(rf"G_{{Y(sup)}} = \frac{{{I_c_plano:.1f} \text{{ cm}}^4 / {H*100:.0f} \text{{ cm}}}}{{{I_v_plano:.1f} \text{{ cm}}^4 / {L*100:.0f} \text{{ cm}}}} = {G_Y_sup:.3f}")
-            st.info(f"**$G_{{Y(inf)}}$ (Apoyo Inferior) = {G_Y_inf:.2f}**")
+            
+            # G_B ahora renderizado en LaTeX para que quede visualmente igual a G_A
+            st.latex(rf"G_{{Y(inf)}} = {G_Y_inf:.2f} \quad \text{{(Apoyo {T_APOYO})}}")
 
             st.write("")
             st.markdown("**1.2 Factor de longitud efectiva ($K_Y$)**")
